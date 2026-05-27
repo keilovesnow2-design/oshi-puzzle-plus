@@ -417,12 +417,13 @@ function _applyCropCanvasSize(w, h) {
   cropCanvasW = w; cropCanvasH = h;
 }
 
-// 新しいcanvasサイズに対して画像をcontainで再フィット
+// 新しいcanvasサイズに対して画像をcoverで再フィット（空白を出さない）
 function _fitCropImageToCanvas() {
   const sx = cropCanvasW / cropImg.width, sy = cropCanvasH / cropImg.height;
-  cropOrigScale = Math.min(sx, sy) * 0.92;
+  cropOrigScale = Math.max(sx, sy); // cover: 枠を必ず覆う
   cropScale     = cropOrigScale;
-  cropMinScale  = cropOrigScale * 0.4;
+  cropMinScale  = cropOrigScale;    // cover未満には縮小不可（空白防止）
+  // 中央に配置
   cropImgX = (cropCanvasW - cropImg.width  * cropScale) / 2;
   cropImgY = (cropCanvasH - cropImg.height * cropScale) / 2;
 }
@@ -472,12 +473,12 @@ function _resizeCropCanvas() {
 }
 
 function _clampCrop() {
-  const vis = 60;
   const iW = cropImg.width * cropScale, iH = cropImg.height * cropScale;
-  if (cropImgX + iW < vis)          cropImgX = vis - iW;
-  if (cropImgX > cropCanvasW - vis) cropImgX = cropCanvasW - vis;
-  if (cropImgY + iH < vis)          cropImgY = vis - iH;
-  if (cropImgY > cropCanvasH - vis) cropImgY = cropCanvasH - vis;
+  // 調整枠内に空白が出ないよう画像が枠を完全に覆う範囲に制限
+  if (cropImgX > 0)                cropImgX = 0;
+  if (cropImgX + iW < cropCanvasW) cropImgX = cropCanvasW - iW;
+  if (cropImgY > 0)                cropImgY = 0;
+  if (cropImgY + iH < cropCanvasH) cropImgY = cropCanvasH - iH;
 }
 
 function _applyCropZoom(ns, px, py) {
