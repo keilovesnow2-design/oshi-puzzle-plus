@@ -156,7 +156,7 @@ let refObjectURL = null; // createObjectURL の管理
 let cropReturnState = 'new'; // 'new' | 'readjust'
 let cropImg = null, cropImgX = 0, cropImgY = 0, cropScale = 1;
 let cropOrigScale = 1, cropMinScale = 0.1, cropCanvasW = 0, cropCanvasH = 0;
-let cropRafId = null, cropMouseDragging = false;
+let cropRafId = null, cropMouseDragging = false, _cropResizeTimer = null;
 let cropDragStartX = 0, cropDragStartY = 0, cropDragImgX0 = 0, cropDragImgY0 = 0;
 let cropPinch = false, cropPinchD0 = 0, cropPinchScale0 = 0;
 let cropPinchMidX = 0, cropPinchMidY = 0, cropPinchImgX0 = 0, cropPinchImgY0 = 0;
@@ -411,9 +411,9 @@ function _initCropCanvas() {
   cropCanvasW = w; cropCanvasH = h;
 
   const sx = w / cropImg.width, sy = h / cropImg.height;
-  cropOrigScale = Math.max(sx, sy);
+  cropOrigScale = Math.min(sx, sy) * 0.92; // contain + 少し余白
   cropScale     = cropOrigScale;
-  cropMinScale  = cropOrigScale * 0.3;
+  cropMinScale  = cropOrigScale * 0.4;
   cropImgX = (w - cropImg.width  * cropScale) / 2;
   cropImgY = (h - cropImg.height * cropScale) / 2;
   _renderCrop();
@@ -438,6 +438,38 @@ function _renderCrop() {
 function _scheduleCropRender() {
   if (cropRafId) return;
   cropRafId = requestAnimationFrame(_renderCrop);
+}
+
+function _onCropResize() {
+  clearTimeout(_cropResizeTimer);
+  _cropResizeTimer = setTimeout(_resizeCropCanvas, 150);
+}
+
+function _resizeCropCanvas() {
+  if (!cropImg) return;
+  const wrap = document.getElementById('cropCanvasWrap');
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  if (!w || !h) return;
+
+  // 現在の表示中心をimage座標で保持
+  const cx = (cropCanvasW / 2 - cropImgX) / cropScale;
+  const cy = (cropCanvasH / 2 - cropImgY) / cropScale;
+
+  const dpr = window.devicePixelRatio || 1;
+  cropCanvas.width  = Math.round(w * dpr);
+  cropCanvas.height = Math.round(h * dpr);
+  cropCanvas.style.width  = w + 'px';
+  cropCanvas.style.height = h + 'px';
+  cropCanvasW = w; cropCanvasH = h;
+
+  const sx = w / cropImg.width, sy = h / cropImg.height;
+  cropMinScale = Math.min(sx, sy) * 0.4;
+
+  // スケールはそのまま、中心点を新キャンバス中央に合わせる
+  cropImgX = w / 2 - cx * cropScale;
+  cropImgY = h / 2 - cy * cropScale;
+  _clampCrop();
+  _renderCrop();
 }
 
 function _clampCrop() {
@@ -540,8 +572,10 @@ function _attachCropEvents() {
   cropCanvas.addEventListener('touchend',    _onCropTEnd,   { passive: false });
   cropCanvas.addEventListener('touchcancel', _onCropTEnd,   { passive: false });
   cropCanvas.addEventListener('mousedown',   _onCropMDown);
-  window.addEventListener('mousemove', _onCropMMove);
-  window.addEventListener('mouseup',   _onCropMUp);
+  window.addEventListener('mousemove',          _onCropMMove);
+  window.addEventListener('mouseup',            _onCropMUp);
+  window.addEventListener('resize',             _onCropResize);
+  window.addEventListener('orientationchange',  _onCropResize);
   cropCanvas.addEventListener('wheel', _onCropWheel, { passive: false });
 }
 
@@ -551,9 +585,12 @@ function _detachCropEvents() {
   cropCanvas.removeEventListener('touchend',    _onCropTEnd);
   cropCanvas.removeEventListener('touchcancel', _onCropTEnd);
   cropCanvas.removeEventListener('mousedown',   _onCropMDown);
-  window.removeEventListener('mousemove', _onCropMMove);
-  window.removeEventListener('mouseup',   _onCropMUp);
+  window.removeEventListener('mousemove',         _onCropMMove);
+  window.removeEventListener('mouseup',           _onCropMUp);
+  window.removeEventListener('resize',            _onCropResize);
+  window.removeEventListener('orientationchange', _onCropResize);
   cropCanvas.removeEventListener('wheel', _onCropWheel);
+  clearTimeout(_cropResizeTimer);
 }
 
 cropConfirmBtn.addEventListener('click', () => {
