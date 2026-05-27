@@ -157,6 +157,7 @@ let cropReturnState = 'new'; // 'new' | 'readjust'
 let cropImg = null, cropImgX = 0, cropImgY = 0, cropScale = 1;
 let cropOrigScale = 1, cropMinScale = 0.1, cropCanvasW = 0, cropCanvasH = 0;
 let cropRafId = null, cropMouseDragging = false, _cropResizeTimer = null, _cropResizeAttempts = 0;
+let _cropResizeObserver = null;
 let cropDragStartX = 0, cropDragStartY = 0, cropDragImgX0 = 0, cropDragImgY0 = 0;
 let cropPinch = false, cropPinchD0 = 0, cropPinchScale0 = 0;
 let cropPinchMidX = 0, cropPinchMidY = 0, cropPinchImgX0 = 0, cropPinchImgY0 = 0;
@@ -407,13 +408,11 @@ function _initCropCanvas() {
   _renderCrop();
 }
 
-// canvasバッファとCSS両方を更新
+// canvasピクセルバッファを更新（表示サイズはCSS position:absolute;inset:0 に任せる）
 function _applyCropCanvasSize(w, h) {
   const dpr = window.devicePixelRatio || 1;
   cropCanvas.width  = Math.round(w * dpr);
   cropCanvas.height = Math.round(h * dpr);
-  cropCanvas.style.width  = w + 'px';
-  cropCanvas.style.height = h + 'px';
   cropCanvasW = w; cropCanvasH = h;
 }
 
@@ -466,15 +465,6 @@ function _resizeCropCanvas() {
   if (!w || !h) { requestAnimationFrame(_resizeCropCanvas); return; }
   // 変化なしなら再描画のみ
   if (w === cropCanvasW && h === cropCanvasH) { _renderCrop(); return; }
-
-  // iOS Safari: position:fixed要素の高さが向き変更後に遅れて更新される問題の対策。
-  // 幅が変わったのに高さが変わっていない場合はlayoutがまだ古い値 → 最大8回リトライ
-  if (w !== cropCanvasW && h === cropCanvasH && _cropResizeAttempts < 8) {
-    _cropResizeAttempts++;
-    setTimeout(() => requestAnimationFrame(_resizeCropCanvas), 200);
-    return;
-  }
-  _cropResizeAttempts = 0;
   _applyCropCanvasSize(w, h);
   // 回転後は旧スケールを引き継がず、新canvasに対して全リフィット
   _fitCropImageToCanvas();
@@ -581,11 +571,21 @@ function _attachCropEvents() {
   cropCanvas.addEventListener('touchend',    _onCropTEnd,   { passive: false });
   cropCanvas.addEventListener('touchcancel', _onCropTEnd,   { passive: false });
   cropCanvas.addEventListener('mousedown',   _onCropMDown);
-  window.addEventListener('mousemove',          _onCropMMove);
-  window.addEventListener('mouseup',            _onCropMUp);
-  window.addEventListener('resize',             _onCropResize);
-  window.addEventListener('orientationchange',  _onCropResize);
+  window.addEventListener('mousemove', _onCropMMove);
+  window.addEventListener('mouseup',   _onCropMUp);
   cropCanvas.addEventListener('wheel', _onCropWheel, { passive: false });
+  // ResizeObserver: wrap の実サイズが変わったときだけ発火（stale値問題を回避）
+  const wrap = document.getElementById('cropCanvasWrap');
+  if (window.ResizeObserver) {
+    _cropResizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(_resizeCropCanvas);
+    });
+    _cropResizeObserver.observe(wrap);
+  } else {
+    // フォールバック（古いブラウザ用）
+    window.addEventListener('resize',            _onCropResize);
+    window.addEventListener('orientationchange', _onCropResize);
+  }
 }
 
 function _detachCropEvents() {
@@ -594,11 +594,16 @@ function _detachCropEvents() {
   cropCanvas.removeEventListener('touchend',    _onCropTEnd);
   cropCanvas.removeEventListener('touchcancel', _onCropTEnd);
   cropCanvas.removeEventListener('mousedown',   _onCropMDown);
-  window.removeEventListener('mousemove',         _onCropMMove);
-  window.removeEventListener('mouseup',           _onCropMUp);
-  window.removeEventListener('resize',            _onCropResize);
-  window.removeEventListener('orientationchange', _onCropResize);
+  window.removeEventListener('mousemove', _onCropMMove);
+  window.removeEventListener('mouseup',   _onCropMUp);
   cropCanvas.removeEventListener('wheel', _onCropWheel);
+  if (_cropResizeObserver) {
+    _cropResizeObserver.disconnect();
+    _cropResizeObserver = null;
+  } else {
+    window.removeEventListener('resize',            _onCropResize);
+    window.removeEventListener('orientationchange', _onCropResize);
+  }
   clearTimeout(_cropResizeTimer);
 }
 
