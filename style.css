@@ -447,4 +447,110 @@ html, body {
   #canvasContainer { top: calc(52px + env(safe-area-inset-top)); }
   .ref-btn     { bottom: calc(16px + env(safe-area-inset-bottom)); }
   .ref-overlay { bottom: calc(60px + env(safe-area-inset-bottom)); }
+  .crop-header { padding-top: calc(12px + env(safe-area-inset-top)); }
+  .crop-footer { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+}
+
+/* ===== CROP SCREEN ===== */
+#cropScreen {
+  padding: 0;
+  background: #0a0a1a;
+  justify-content: flex-start;
+  gap: 0;
+  overflow: hidden;
+}
+
+.crop-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(10,10,26,0.97);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+
+.crop-back-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: var(--text-sub);
+  border-radius: 20px;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.crop-back-btn:active { border-color: rgba(255,255,255,0.4); }
+
+.crop-title {
+  flex: 1;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.04em;
+}
+
+.crop-hint-text {
+  font-size: 0.72rem;
+  color: rgba(160,160,176,0.5);
+  text-align: center;
+  padding: 7px 16px;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+#cropCanvasWrap {
+  flex: 1;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  cursor: grab;
+  min-height: 0;
+}
+
+#cropCanvasWrap:active { cursor: grabbing; }
+
+#cropCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.crop-frame-border {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1.5px solid rgba(233,69,96,0.4);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.05),
+    0 0 40px rgba(233,69,96,0.08) inset;
+}
+
+.crop-footer {
+  width: 100%;
+  padding: 10px 20px;
+  background: rgba(10,10,26,0.97);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255,255,255,0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.crop-quality-warn {
+  font-size: 0.72rem;
+  color: #f5a623;
+  text-align: center;
+  padding: 5px 10px;
+  background: rgba(245,166,35,0.07);
+  border-radius: 6px;
+  border: 1px solid rgba(245,166,35,0.2);
 }
