@@ -156,7 +156,7 @@ let refObjectURL = null; // createObjectURL の管理
 let cropReturnState = 'new'; // 'new' | 'readjust'
 let cropImg = null, cropImgX = 0, cropImgY = 0, cropScale = 1;
 let cropOrigScale = 1, cropMinScale = 0.1, cropCanvasW = 0, cropCanvasH = 0;
-let cropRafId = null, cropMouseDragging = false, _cropResizeTimer = null;
+let cropRafId = null, cropMouseDragging = false, _cropResizeTimer = null, _cropResizeAttempts = 0;
 let cropDragStartX = 0, cropDragStartY = 0, cropDragImgX0 = 0, cropDragImgY0 = 0;
 let cropPinch = false, cropPinchD0 = 0, cropPinchScale0 = 0;
 let cropPinchMidX = 0, cropPinchMidY = 0, cropPinchImgX0 = 0, cropPinchImgY0 = 0;
@@ -451,6 +451,7 @@ function _scheduleCropRender() {
 
 function _onCropResize() {
   clearTimeout(_cropResizeTimer);
+  _cropResizeAttempts = 0;
   // 200ms debounce後、double rAFでlayout安定を待つ（iOS Safari対応）
   _cropResizeTimer = setTimeout(() => {
     requestAnimationFrame(() => requestAnimationFrame(_resizeCropCanvas));
@@ -466,6 +467,14 @@ function _resizeCropCanvas() {
   // 変化なしなら再描画のみ
   if (w === cropCanvasW && h === cropCanvasH) { _renderCrop(); return; }
 
+  // iOS Safari: position:fixed要素の高さが向き変更後に遅れて更新される問題の対策。
+  // 幅が変わったのに高さが変わっていない場合はlayoutがまだ古い値 → 最大8回リトライ
+  if (w !== cropCanvasW && h === cropCanvasH && _cropResizeAttempts < 8) {
+    _cropResizeAttempts++;
+    setTimeout(() => requestAnimationFrame(_resizeCropCanvas), 200);
+    return;
+  }
+  _cropResizeAttempts = 0;
   _applyCropCanvasSize(w, h);
   // 回転後は旧スケールを引き継がず、新canvasに対して全リフィット
   _fitCropImageToCanvas();
