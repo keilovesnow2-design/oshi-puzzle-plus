@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1a2e">
+  <title>推しパズルメーカー</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ===== 再開ダイアログ ===== -->
+<div id="resumeDialog" class="screen hidden">
+  <div class="dialog-box">
+    <div class="dialog-icon">🧩</div>
+    <div class="dialog-title">前回の続きがあります</div>
+    <div class="dialog-sub" id="resumeSub">前回の途中保存から再開しますか？</div>
+    <div class="dialog-buttons">
+      <button class="btn btn-primary" id="resumeBtn">続きから再開する</button>
+      <button class="btn btn-secondary" id="newGameBtn">新しく始める</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== スタート画面 ===== -->
+<div id="startScreen" class="screen hidden">
+  <div class="app-title">推しパズルメーカー</div>
+  <p class="app-sub">画像をジグソーパズルにしよう</p>
+
+  <div class="card">
+    <div class="card-title">画像を選ぶ</div>
+    <div class="upload-area" id="uploadArea">
+      <input type="file" id="fileInput" accept="image/*">
+      <div id="uploadPlaceholder">
+        <div class="upload-icon">🌸</div>
+        <div class="upload-label">タップして画像を選択</div>
+        <div class="upload-sub">カメラロールからも選べます</div>
+      </div>
+      <img id="previewImg" class="preview-img" alt="プレビュー">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">難易度（ピース数）</div>
+    <div class="difficulty-grid">
+      <button class="diff-btn" data-cols="3" data-rows="3">
+        <span class="pieces">9</span><span class="label">かんたん</span>
+      </button>
+      <button class="diff-btn selected" data-cols="4" data-rows="4">
+        <span class="pieces">16</span><span class="label">ふつう</span>
+      </button>
+      <button class="diff-btn" data-cols="5" data-rows="5">
+        <span class="pieces">25</span><span class="label">むずかしい</span>
+      </button>
+      <button class="diff-btn" data-cols="6" data-rows="6">
+        <span class="pieces">36</span><span class="label">ハード</span>
+      </button>
+      <button class="diff-btn" data-cols="8" data-rows="8">
+        <span class="pieces">64</span><span class="label">エキスパート</span>
+      </button>
+      <button class="diff-btn" data-cols="10" data-rows="10">
+        <span class="pieces">100</span><span class="label">超ハード</span>
+      </button>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="startBtn" disabled>パズルをはじめる</button>
+
+  <!-- 公式LINE案内 -->
+  <div class="line-promo">
+    <p class="line-promo-title">気に入ってくださった方へ</p>
+    <p class="line-promo-text">アップデート情報や無料プレゼントを公式LINEでお届けします。<br>友だち追加してくださった方には、スマホで使える便利なミニアプリをプレゼント予定です。</p>
+    <button class="btn btn-line" id="lineBtn">公式LINEを友だち追加する</button>
+    <p class="line-notice">画像はサーバーに保存されず、端末内で処理されます。<br>このアプリは無料お試し版です。</p>
+  </div>
+</div>
+
+<!-- ===== パズル画面 ===== -->
+<div id="puzzleScreen" class="screen hidden">
+  <div class="puzzle-header">
+    <div class="puzzle-timer" id="timerDisplay">00:00</div>
+    <div class="puzzle-progress">
+      <div id="progressText">0 / 0</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+    </div>
+    <button class="btn btn-danger" id="resetBtn" style="width:auto;max-width:none;padding:8px 14px;font-size:0.78rem;">リセット</button>
+  </div>
+  <div id="canvasContainer">
+    <canvas id="puzzleCanvas"></canvas>
+  </div>
+  <!-- 見本ボタン -->
+  <button id="refBtn" class="ref-btn" aria-label="完成見本を表示">見本</button>
+  <!-- 見本オーバーレイ（ブラウザ内画像のみ・サーバー非送信） -->
+  <div id="refOverlay" class="ref-overlay hidden">
+    <div class="ref-header">完成見本</div>
+    <img id="refImg" alt="完成見本">
+  </div>
+</div>
+
+<!-- ===== クリア画面 ===== -->
+<div id="completeScreen" class="screen hidden">
+  <div class="complete-emoji">🎉</div>
+  <div class="complete-title">パズル完成！</div>
+  <div class="complete-time" id="completeTime">00:00</div>
+  <div class="complete-sub" id="completeSub"></div>
+
+  <div class="complete-line-promo">
+    <p class="complete-line-text">楽しんでいただけましたか？😊<br>Neutral Worksでは、スマホで遊べるミニアプリや便利ツールを制作しています。<br><br>友だち追加してくださった方には、<br>新作アプリ・アップデート情報・無料プレゼントをお届けします🎁</p>
+    <button class="btn btn-line-complete" id="completeLINEBtn">公式LINEを友だち追加する</button>
+  </div>
+
+  <div class="complete-sub-actions">
+    <button class="btn btn-sub" id="playAgainBtn">もう一度遊ぶ</button>
+    <button class="btn btn-sub btn-sub-outline" id="backToTopBtn">トップに戻る</button>
+  </div>
+</div>
+
+<script type="module">
+import { initDB, loadState, clearState, hasSavedState } from './storage.js';
+import { Puzzle, formatTime } from './puzzle.js';
+
+// ── 公式LINE ── URL変更はここだけ
+const LINE_FRIEND_URL = 'https://lin.ee/zqaJ7zp';
+
+// ── 状態 ──
+let selectedCols = 4, selectedRows = 4;
+let imageBlob = null;
+let puzzle = null;
+let refObjectURL = null; // createObjectURL の管理
+
+// ── 要素 ──
+const screens = {
+  resume:   document.getElementById('resumeDialog'),
+  start:    document.getElementById('startScreen'),
+  puzzle:   document.getElementById('puzzleScreen'),
+  complete: document.getElementById('completeScreen'),
+};
+const fileInput         = document.getElementById('fileInput');
+const previewImg        = document.getElementById('previewImg');
+const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+const startBtn          = document.getElementById('startBtn');
+const timerDisplay      = document.getElementById('timerDisplay');
+const progressText      = document.getElementById('progressText');
+const progressFill      = document.getElementById('progressFill');
+const resumeBtn         = document.getElementById('resumeBtn');
+const newGameBtn        = document.getElementById('newGameBtn');
+const resumeSub         = document.getElementById('resumeSub');
+const resetBtn          = document.getElementById('resetBtn');
+const playAgainBtn      = document.getElementById('playAgainBtn');
+const backToTopBtn      = document.getElementById('backToTopBtn');
+const canvas            = document.getElementById('puzzleCanvas');
+const refBtn            = document.getElementById('refBtn');
+const refOverlay        = document.getElementById('refOverlay');
+const refImg            = document.getElementById('refImg');
+
+function showScreen(name) {
+  Object.values(screens).forEach(s => s.classList.add('hidden'));
+  screens[name].classList.remove('hidden');
+  // パズル以外の画面では見本を隠す
+  if (name !== 'puzzle') {
+    refOverlay.classList.add('hidden');
+    refBtn.classList.add('hidden');
+  } else {
+    refBtn.classList.remove('hidden');
+  }
+}
+
+function updateProgress(total) {
+  if (!puzzle) return;
+  const placed = puzzle.countPlaced();
+  progressText.textContent = `${placed} / ${total}`;
+  progressFill.style.width = `${(placed / total) * 100}%`;
+}
+
+// ── 起動 ──
+async function boot() {
+  await initDB();
+  if (hasSavedState()) {
+    const state = await loadState();
+    if (state) {
+      const placed = state.pieces.filter(p => p.placed).length;
+      const total  = state.pieces.length;
+      const m = Math.floor(state.elapsed / 60), s = state.elapsed % 60;
+      resumeSub.textContent = `${total}ピース・${placed}/${total}個配置済み・${m}分${s}秒経過`;
+      showScreen('resume');
+      return;
+    }
+  }
+  showScreen('start');
+}
+
+// ── 再開 ──
+resumeBtn.addEventListener('click', async () => {
+  const state = await loadState();
+  if (!state) { showScreen('start'); return; }
+  imageBlob = state.imageBlob;
+  const img = await blobToImage(imageBlob);
+  startPuzzle(img, state.cols, state.rows, state.elapsed, state.pieces, state.vW, state.vH);
+});
+
+newGameBtn.addEventListener('click', async () => {
+  await clearState();
+  showScreen('start');
+});
+
+// ── 画像選択 ──
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  setImage(file);
+});
+
+const uploadArea = document.getElementById('uploadArea');
+uploadArea.addEventListener('dragover',  e => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+uploadArea.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadArea.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) setImage(file);
+});
+
+function setImage(file) {
+  imageBlob = file;
+  const url = URL.createObjectURL(file);
+  previewImg.src = url;
+  previewImg.style.display = 'block';
+  uploadPlaceholder.style.display = 'none';
+  startBtn.disabled = false;
+}
+
+// ── 難易度 ──
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedCols = parseInt(btn.dataset.cols);
+    selectedRows = parseInt(btn.dataset.rows);
+  });
+});
+
+// ── スタート ──
+startBtn.addEventListener('click', async () => {
+  if (!imageBlob) return;
+  await clearState();
+  const img = await blobToImage(imageBlob);
+  startPuzzle(img, selectedCols, selectedRows, 0, null);
+});
+
+function blobToImage(blob) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+function startPuzzle(img, cols, rows, elapsed, savedPieces, savedVW, savedVH) {
+  showScreen('puzzle');
+  if (puzzle) puzzle.destroy();
+
+  const total = cols * rows;
+
+  // 見本画像を設定（ブラウザ内 Blob のみ・サーバー非送信）
+  if (refObjectURL) URL.revokeObjectURL(refObjectURL);
+  refObjectURL = URL.createObjectURL(imageBlob);
+  refImg.src = refObjectURL;
+  refOverlay.classList.add('hidden');
+
+  puzzle = new Puzzle({
+    canvas,
+    image: img,
+    cols,
+    rows,
+    elapsed,
+    savedPieces,
+    savedVW,
+    savedVH,
+    onComplete: sec => {
+      showScreen('complete');
+      document.getElementById('completeTime').textContent = formatTime(sec);
+      document.getElementById('completeSub').textContent =
+        `${cols * rows}ピースを${Math.floor(sec/60)}分${sec%60}秒でクリア！`;
+    },
+    onUpdate: sec => {
+      timerDisplay.textContent = formatTime(sec);
+      updateProgress(total);
+    },
+  });
+
+  puzzle.setImageBlob(imageBlob);
+  updateProgress(total);
+  timerDisplay.textContent = formatTime(elapsed);
+}
+
+// ── 見本トグル ──
+refBtn.addEventListener('click', () => {
+  refOverlay.classList.toggle('hidden');
+});
+
+// ── リセット ──
+resetBtn.addEventListener('click', async () => {
+  if (!confirm('パズルをリセットしますか？\n保存データも削除されます。')) return;
+  if (puzzle) { puzzle.destroy(); puzzle = null; }
+  await clearState();
+  imageBlob = null;
+  if (refObjectURL) { URL.revokeObjectURL(refObjectURL); refObjectURL = null; }
+  previewImg.style.display = 'none';
+  uploadPlaceholder.style.display = '';
+  startBtn.disabled = true;
+  fileInput.value = '';
+  showScreen('start');
+});
+
+// ── もう一度遊ぶ（同じ画像で再挑戦）──
+playAgainBtn.addEventListener('click', () => {
+  if (imageBlob) {
+    previewImg.src = URL.createObjectURL(imageBlob);
+    previewImg.style.display = 'block';
+    uploadPlaceholder.style.display = 'none';
+    startBtn.disabled = false;
+  }
+  showScreen('start');
+});
+
+// ── トップに戻る（画像クリア）──
+backToTopBtn.addEventListener('click', () => {
+  imageBlob = null;
+  if (refObjectURL) { URL.revokeObjectURL(refObjectURL); refObjectURL = null; }
+  previewImg.style.display = 'none';
+  uploadPlaceholder.style.display = '';
+  startBtn.disabled = true;
+  fileInput.value = '';
+  showScreen('start');
+});
+
+// ── LINE友だち追加 ──
+document.getElementById('lineBtn').addEventListener('click', () => {
+  window.open(LINE_FRIEND_URL, '_blank', 'noopener,noreferrer');
+});
+document.getElementById('completeLINEBtn').addEventListener('click', () => {
+  window.open(LINE_FRIEND_URL, '_blank', 'noopener,noreferrer');
+});
+
+boot();
+</script>
+</body>
+</html>
