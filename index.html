@@ -40,6 +40,7 @@
       </div>
       <img id="previewImg" class="preview-img" alt="プレビュー">
     </div>
+    <button class="btn btn-readjust" id="readjustBtn" style="display:none">画像の位置を再調整する</button>
   </div>
 
   <div class="card">
@@ -91,7 +92,7 @@
   </div>
   <div class="crop-footer">
     <div id="cropQualityWarn" class="crop-quality-warn hidden">⚠ 拡大しすぎると画質が粗くなる場合があります</div>
-    <button class="btn btn-primary" id="cropConfirmBtn">この範囲でパズルにする</button>
+    <button class="btn btn-primary" id="cropConfirmBtn">この範囲で決定</button>
   </div>
 </div>
 
@@ -152,6 +153,7 @@ let puzzle = null;
 let refObjectURL = null; // createObjectURL の管理
 
 // Crop state
+let cropReturnState = 'new'; // 'new' | 'readjust'
 let cropImg = null, cropImgX = 0, cropImgY = 0, cropScale = 1;
 let cropOrigScale = 1, cropMinScale = 0.1, cropCanvasW = 0, cropCanvasH = 0;
 let cropRafId = null, cropMouseDragging = false;
@@ -188,6 +190,7 @@ const cropCanvas        = document.getElementById('cropCanvas');
 const cropQualityWarn   = document.getElementById('cropQualityWarn');
 const cropConfirmBtn    = document.getElementById('cropConfirmBtn');
 const cropBackBtn       = document.getElementById('cropBackBtn');
+const readjustBtn       = document.getElementById('readjustBtn');
 
 function showScreen(name) {
   Object.values(screens).forEach(s => s.classList.add('hidden'));
@@ -257,13 +260,10 @@ uploadArea.addEventListener('drop', e => {
 });
 
 function setImage(file) {
-  imageBlob = file;
   originalFileBlob = file;
-  const url = URL.createObjectURL(file);
-  previewImg.src = url;
-  previewImg.style.display = 'block';
-  uploadPlaceholder.style.display = 'none';
-  startBtn.disabled = false;
+  imageBlob = null;
+  cropReturnState = 'new';
+  showCropScreen();
 }
 
 // ── 難易度 ──
@@ -277,9 +277,11 @@ document.querySelectorAll('.diff-btn').forEach(btn => {
 });
 
 // ── スタート ──
-startBtn.addEventListener('click', () => {
+startBtn.addEventListener('click', async () => {
   if (!imageBlob) return;
-  showCropScreen();
+  await clearState();
+  const img = await blobToImage(imageBlob);
+  startPuzzle(img, selectedCols, selectedRows, 0, null);
 });
 
 function blobToImage(blob) {
@@ -346,6 +348,7 @@ resetBtn.addEventListener('click', async () => {
   previewImg.style.display = 'none';
   uploadPlaceholder.style.display = '';
   startBtn.disabled = true;
+  readjustBtn.style.display = 'none';
   fileInput.value = '';
   showScreen('start');
 });
@@ -357,6 +360,7 @@ playAgainBtn.addEventListener('click', () => {
     previewImg.style.display = 'block';
     uploadPlaceholder.style.display = 'none';
     startBtn.disabled = false;
+    readjustBtn.style.display = originalFileBlob ? '' : 'none';
   }
   showScreen('start');
 });
@@ -369,6 +373,7 @@ backToTopBtn.addEventListener('click', () => {
   previewImg.style.display = 'none';
   uploadPlaceholder.style.display = '';
   startBtn.disabled = true;
+  readjustBtn.style.display = 'none';
   fileInput.value = '';
   showScreen('start');
 });
@@ -384,10 +389,9 @@ document.getElementById('completeLINEBtn').addEventListener('click', () => {
 // ── ベストショット調整 ─────────────────────────────────────────────────────
 
 function showCropScreen() {
-  if (!imageBlob) return;
+  if (!originalFileBlob) return;
   showScreen('crop');
-  const src = originalFileBlob || imageBlob;
-  blobToImage(src).then(img => {
+  blobToImage(originalFileBlob).then(img => {
     cropImg = img;
     _initCropCanvas();
     _attachCropEvents();
@@ -565,17 +569,36 @@ cropConfirmBtn.addEventListener('click', () => {
   ctx.translate(cropImgX, cropImgY);
   ctx.scale(cropScale, cropScale);
   ctx.drawImage(cropImg, 0, 0);
-  off.toBlob(async blob => {
+  off.toBlob(blob => {
     imageBlob = blob;
-    await clearState();
-    const img = await blobToImage(blob);
-    startPuzzle(img, selectedCols, selectedRows, 0, null);
+    previewImg.src = URL.createObjectURL(blob);
+    previewImg.style.display = 'block';
+    uploadPlaceholder.style.display = 'none';
+    startBtn.disabled = false;
+    readjustBtn.style.display = '';
+    showScreen('start');
   }, 'image/jpeg', 0.92);
 });
 
 cropBackBtn.addEventListener('click', () => {
   _detachCropEvents();
+  if (cropReturnState === 'new') {
+    // 初回選択からのキャンセル → 画像未選択状態に戻す
+    imageBlob = null;
+    originalFileBlob = null;
+    previewImg.style.display = 'none';
+    uploadPlaceholder.style.display = '';
+    startBtn.disabled = true;
+    readjustBtn.style.display = 'none';
+    fileInput.value = '';
+  }
+  // 再調整からのキャンセル → 既存のプレビューをそのまま維持
   showScreen('start');
+});
+
+readjustBtn.addEventListener('click', () => {
+  cropReturnState = 'readjust';
+  showCropScreen();
 });
 
 boot();

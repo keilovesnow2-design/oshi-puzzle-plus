@@ -545,6 +545,28 @@ html, body {
   flex-shrink: 0;
 }
 
+.btn-readjust {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 16px;
+  background: transparent;
+  border: 1px solid rgba(233,69,96,0.35);
+  border-radius: 50px;
+  color: rgba(233,69,96,0.85);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-readjust:active {
+  background: rgba(233,69,96,0.08);
+  border-color: var(--accent);
+}
+
 .crop-quality-warn {
   font-size: 0.72rem;
   color: #f5a623;
