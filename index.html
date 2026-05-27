@@ -402,21 +402,29 @@ function _initCropCanvas() {
   const wrap = document.getElementById('cropCanvasWrap');
   const w = wrap.clientWidth, h = wrap.clientHeight;
   if (!w || !h) { requestAnimationFrame(_initCropCanvas); return; }
+  _applyCropCanvasSize(w, h);
+  _fitCropImageToCanvas();
+  _renderCrop();
+}
 
+// canvasバッファとCSS両方を更新
+function _applyCropCanvasSize(w, h) {
   const dpr = window.devicePixelRatio || 1;
   cropCanvas.width  = Math.round(w * dpr);
   cropCanvas.height = Math.round(h * dpr);
   cropCanvas.style.width  = w + 'px';
   cropCanvas.style.height = h + 'px';
   cropCanvasW = w; cropCanvasH = h;
+}
 
-  const sx = w / cropImg.width, sy = h / cropImg.height;
-  cropOrigScale = Math.min(sx, sy) * 0.92; // contain + 少し余白
+// 新しいcanvasサイズに対して画像をcontainで再フィット
+function _fitCropImageToCanvas() {
+  const sx = cropCanvasW / cropImg.width, sy = cropCanvasH / cropImg.height;
+  cropOrigScale = Math.min(sx, sy) * 0.92;
   cropScale     = cropOrigScale;
   cropMinScale  = cropOrigScale * 0.4;
-  cropImgX = (w - cropImg.width  * cropScale) / 2;
-  cropImgY = (h - cropImg.height * cropScale) / 2;
-  _renderCrop();
+  cropImgX = (cropCanvasW - cropImg.width  * cropScale) / 2;
+  cropImgY = (cropCanvasH - cropImg.height * cropScale) / 2;
 }
 
 function _renderCrop() {
@@ -442,33 +450,24 @@ function _scheduleCropRender() {
 
 function _onCropResize() {
   clearTimeout(_cropResizeTimer);
-  _cropResizeTimer = setTimeout(_resizeCropCanvas, 150);
+  // 200ms debounce後、double rAFでlayout安定を待つ（iOS Safari対応）
+  _cropResizeTimer = setTimeout(() => {
+    requestAnimationFrame(() => requestAnimationFrame(_resizeCropCanvas));
+  }, 200);
 }
 
 function _resizeCropCanvas() {
   if (!cropImg) return;
   const wrap = document.getElementById('cropCanvasWrap');
   const w = wrap.clientWidth, h = wrap.clientHeight;
-  if (!w || !h) return;
+  // 寸法が取れない場合は再試行
+  if (!w || !h) { requestAnimationFrame(_resizeCropCanvas); return; }
+  // 変化なしなら再描画のみ
+  if (w === cropCanvasW && h === cropCanvasH) { _renderCrop(); return; }
 
-  // 現在の表示中心をimage座標で保持
-  const cx = (cropCanvasW / 2 - cropImgX) / cropScale;
-  const cy = (cropCanvasH / 2 - cropImgY) / cropScale;
-
-  const dpr = window.devicePixelRatio || 1;
-  cropCanvas.width  = Math.round(w * dpr);
-  cropCanvas.height = Math.round(h * dpr);
-  cropCanvas.style.width  = w + 'px';
-  cropCanvas.style.height = h + 'px';
-  cropCanvasW = w; cropCanvasH = h;
-
-  const sx = w / cropImg.width, sy = h / cropImg.height;
-  cropMinScale = Math.min(sx, sy) * 0.4;
-
-  // スケールはそのまま、中心点を新キャンバス中央に合わせる
-  cropImgX = w / 2 - cx * cropScale;
-  cropImgY = h / 2 - cy * cropScale;
-  _clampCrop();
+  _applyCropCanvasSize(w, h);
+  // 回転後は旧スケールを引き継がず、新canvasに対して全リフィット
+  _fitCropImageToCanvas();
   _renderCrop();
 }
 
