@@ -408,7 +408,7 @@ function _initCropCanvas() {
   _renderCrop();
 }
 
-// canvasピクセルバッファを更新（表示サイズはCSS position:absolute;inset:0 に任せる）
+// canvasピクセルバッファとcropCanvasW/Hを更新（表示サイズはCSS inset:0 に任せる）
 function _applyCropCanvasSize(w, h) {
   const dpr = window.devicePixelRatio || 1;
   cropCanvas.width  = Math.round(w * dpr);
@@ -431,6 +431,22 @@ function _renderCrop() {
   cropRafId = null;
   if (!cropImg) return;
   const dpr = window.devicePixelRatio || 1;
+
+  // CSS inset:0 に任せるため古いinlineスタイルを消し、実際の表示サイズを取得
+  cropCanvas.style.width  = '';
+  cropCanvas.style.height = '';
+  const w = cropCanvas.offsetWidth;
+  const h = cropCanvas.offsetHeight;
+  if (!w || !h) return;
+
+  // 表示サイズがピクセルバッファと異なる場合（画面回転など）は再同期してリフィット
+  if (w !== cropCanvasW || h !== cropCanvasH) {
+    cropCanvas.width  = Math.round(w * dpr);
+    cropCanvas.height = Math.round(h * dpr);
+    cropCanvasW = w; cropCanvasH = h;
+    _fitCropImageToCanvas();
+  }
+
   const ctx = cropCanvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = '#000';
@@ -458,17 +474,8 @@ function _onCropResize() {
 }
 
 function _resizeCropCanvas() {
-  if (!cropImg) return;
-  const wrap = document.getElementById('cropCanvasWrap');
-  const w = wrap.clientWidth, h = wrap.clientHeight;
-  // 寸法が取れない場合は再試行
-  if (!w || !h) { requestAnimationFrame(_resizeCropCanvas); return; }
-  // 変化なしなら再描画のみ
-  if (w === cropCanvasW && h === cropCanvasH) { _renderCrop(); return; }
-  _applyCropCanvasSize(w, h);
-  // 回転後は旧スケールを引き継がず、新canvasに対して全リフィット
-  _fitCropImageToCanvas();
-  _renderCrop();
+  // _renderCrop がoffsetWidth/Heightで自己修復するため、再描画をトリガーするだけでよい
+  if (cropImg) _scheduleCropRender();
 }
 
 function _clampCrop() {
@@ -578,7 +585,8 @@ function _attachCropEvents() {
   const wrap = document.getElementById('cropCanvasWrap');
   if (window.ResizeObserver) {
     _cropResizeObserver = new ResizeObserver(() => {
-      requestAnimationFrame(_resizeCropCanvas);
+      // _renderCrop がoffsetWidth/Heightで自己修復するため再描画トリガーのみ
+      if (cropImg) _scheduleCropRender();
     });
     _cropResizeObserver.observe(wrap);
   } else {
