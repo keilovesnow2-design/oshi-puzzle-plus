@@ -146,8 +146,10 @@ import { CropScreen } from './crop.js';
 // ── 公式LINE ── URL変更はここだけ
 const LINE_FRIEND_URL = 'https://lin.ee/zqaJ7zp';
 
-// [DEBUG] ?debug=1 のときだけデバッグパネルを表示 ───────────────────────────
-const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+// [DEBUG] ?debug=1 または localStorage.debug=1 のときだけ表示 ─────────────────
+const DEBUG = location.search.includes('debug=1')
+           || location.hash.includes('debug=1')
+           || localStorage.getItem('debug') === '1';
 let _currentScreen = 'boot';
 let _dbgResizeCount = 0, _dbgOrientCount = 0;
 // ─────────────────────────────────────────────────────────────────────────────
@@ -435,35 +437,41 @@ if (DEBUG) {
 
   const _dbgPanel = document.createElement('div');
   _dbgPanel.id = 'debugPanel';
-  _dbgPanel.style.cssText = 'position:fixed;top:0;left:0;z-index:99999;width:230px;max-height:50vh;overflow-y:auto;background:rgba(0,0,0,0.85);color:#0ff;font:10px/1.55 monospace;padding:6px 8px;pointer-events:none;white-space:pre;border-bottom-right-radius:8px;';
+  _dbgPanel.style.cssText = 'position:fixed;top:0;left:0;z-index:99999;width:230px;min-height:20px;max-height:50vh;overflow-y:auto;background:rgba(0,0,0,0.9);color:#0ff;font:10px/1.55 monospace;padding:6px 8px;pointer-events:none;white-space:pre;border-bottom-right-radius:8px;';
+  _dbgPanel.textContent = '[DBG] initializing...';
   document.body.appendChild(_dbgPanel);
 
   const _t0 = Date.now();
   const _ts = ms => ms ? `+${((ms - _t0)/1000).toFixed(2)}s` : '---';
   (function _updateDebug() {
-    const vvp = window.visualViewport;
-    const info = cropScreen.getDebugInfo();
-    _dbgPanel.textContent = [
-      `[DBG] ${_currentScreen} dpr:${window.devicePixelRatio}`,
-      `win: ${window.innerWidth}×${window.innerHeight}`,
-      `vvp: ${vvp ? Math.round(vvp.width)+'×'+Math.round(vvp.height) : 'n/a'}`,
-      `ori: ${screen.orientation?.type ?? 'n/a'}`,
-      `─────`,
-      `wrap: ${info.wrapClientW}×${info.wrapClientH}`,
-      `canvasPx: ${info.canvasPxW}×${info.canvasPxH}`,
-      `style: "${info.canvasStyleW||''}×${info.canvasStyleH||''}"`,
-      `img: ${info.imgNatW??'-'}×${info.imgNatH??'-'}`,
-      `─────`,
-      `scale: ${info.scale.toFixed(4)}`,
-      `minScale: ${info.minScale.toFixed(4)}`,
-      `offset: ${info.x.toFixed(1)},${info.y.toFixed(1)}`,
-      `cW×cH: ${info.cW}×${info.cH}`,
-      `─────`,
-      `resize#: ${_dbgResizeCount} ori#: ${_dbgOrientCount}`,
-      `initCanvas: ${_ts(info.lastInitCanvas)} (${info.initCount}x)`,
-      `handleResize: ${_ts(info.lastHandleResize)} (${info.resizeCount}x)`,
-      `render: ${_ts(info.lastRender)} (${info.renderCount}x)`,
-    ].join('\n');
+    try {
+      const vvp = window.visualViewport;
+      const info = cropScreen.getDebugInfo();
+      _dbgPanel.textContent = [
+        `[DBG] ${_currentScreen} dpr:${window.devicePixelRatio}`,
+        `win: ${window.innerWidth}x${window.innerHeight}`,
+        `vvp: ${vvp ? Math.round(vvp.width)+'x'+Math.round(vvp.height) : 'n/a'}`,
+        `ori: ${screen.orientation?.type ?? 'n/a'}`,
+        `-`,
+        `wrap: ${info.wrapClientW}x${info.wrapClientH}`,
+        `canvasPx: ${info.canvasPxW}x${info.canvasPxH}`,
+        `styleW: ${info.canvasStyleW||'(empty)'}`,
+        `styleH: ${info.canvasStyleH||'(empty)'}`,
+        `img: ${info.imgNatW??'-'}x${info.imgNatH??'-'}`,
+        `-`,
+        `scale: ${info.scale.toFixed(4)}`,
+        `minSc: ${info.minScale.toFixed(4)}`,
+        `off: ${info.x.toFixed(1)},${info.y.toFixed(1)}`,
+        `cWH: ${info.cW}x${info.cH}`,
+        `-`,
+        `rsz#:${_dbgResizeCount} ori#:${_dbgOrientCount}`,
+        `init: ${_ts(info.lastInitCanvas)} x${info.initCount}`,
+        `rsz: ${_ts(info.lastHandleResize)} x${info.resizeCount}`,
+        `rnd: ${_ts(info.lastRender)} x${info.renderCount}`,
+      ].join('\n');
+    } catch(e) {
+      _dbgPanel.textContent = '[DBG ERR] ' + e.message;
+    }
     requestAnimationFrame(_updateDebug);
   })();
 }
