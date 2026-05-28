@@ -68,8 +68,7 @@ export class CropScreen {
     img.onload = () => {
       URL.revokeObjectURL(url);
       this._img = img;
-      // CSS レイアウト確定を待ってから読み取る（flex 未確定による _cH 異常値防止）
-      requestAnimationFrame(() => requestAnimationFrame(() => this._initCanvas()));
+      this._initCanvas();
     };
     img.onerror = () => URL.revokeObjectURL(url);
     img.src = url;
@@ -137,6 +136,8 @@ export class CropScreen {
     const dpr = window.devicePixelRatio || 1;
     this._canvas.width  = Math.round(w * dpr);
     this._canvas.height = Math.round(h * dpr);
+    this._canvas.style.width  = w + 'px';
+    this._canvas.style.height = h + 'px';
     this._cW = w;
     this._cH = h;
   }
@@ -320,6 +321,9 @@ export class CropScreen {
       window.addEventListener('resize',            this._handleResize);
       window.addEventListener('orientationchange', this._handleResize);
     }
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', this._handleResize);
+    }
     this._eventsAttached = true;
   }
 
@@ -340,6 +344,9 @@ export class CropScreen {
     } else {
       window.removeEventListener('resize',            this._handleResize);
       window.removeEventListener('orientationchange', this._handleResize);
+    }
+    if (window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', this._handleResize);
     }
     clearTimeout(this._resizeTimer);
     if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
