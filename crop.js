@@ -68,7 +68,8 @@ export class CropScreen {
     img.onload = () => {
       URL.revokeObjectURL(url);
       this._img = img;
-      this._initCanvas();
+      // CSS レイアウト確定を待ってから読み取る（flex 未確定による _cH 異常値防止）
+      requestAnimationFrame(() => requestAnimationFrame(() => this._initCanvas()));
     };
     img.onerror = () => URL.revokeObjectURL(url);
     img.src = url;
