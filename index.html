@@ -146,10 +146,12 @@ import { CropScreen } from './crop.js';
 // ── 公式LINE ── URL変更はここだけ
 const LINE_FRIEND_URL = 'https://lin.ee/zqaJ7zp';
 
-// [DEBUG] ?debug=1 または localStorage.debug=1 のときだけ表示 ─────────────────
-const DEBUG = location.search.includes('debug=1')
-           || location.hash.includes('debug=1')
-           || localStorage.getItem('debug') === '1';
+// [DEBUG] TODO: 確認後に下行を削除して本来の条件に戻す ──────────────────────
+const DEBUG = true; // 常時表示（一時的）
+// const DEBUG = location.search.includes('debug=1')
+//            || location.hash.includes('debug=1')
+//            || localStorage.getItem('debug') === '1';
+// ─────────────────────────────────────────────────────────────────────────────
 let _currentScreen = 'boot';
 let _dbgResizeCount = 0, _dbgOrientCount = 0;
 // ─────────────────────────────────────────────────────────────────────────────
