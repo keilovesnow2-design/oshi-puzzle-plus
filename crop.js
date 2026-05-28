@@ -77,15 +77,31 @@ export class CropScreen {
   confirm() {
     this._detachEvents();
     const dpr = window.devicePixelRatio || 1;
+    const isLandscape = this._cW > this._cH;
+    const outW = isLandscape ? this._cH : this._cW;
+    const outH = isLandscape ? this._cW : this._cH;
     const off = document.createElement('canvas');
-    off.width  = Math.round(this._cW * dpr);
-    off.height = Math.round(this._cH * dpr);
+    off.width  = Math.round(outW * dpr);
+    off.height = Math.round(outH * dpr);
     const ctx = off.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, this._cW, this._cH);
-    ctx.translate(this._x, this._y);
-    ctx.scale(this._scale, this._scale);
+    ctx.fillRect(0, 0, outW, outH);
+    if (isLandscape) {
+      // 横画面でも portrait blob を出力: 現在の視点中心を portrait 座標系に再マッピング
+      const viewCX = (this._cW / 2 - this._x) / this._scale;
+      const viewCY = (this._cH / 2 - this._y) / this._scale;
+      const ns = Math.max(outW / this._img.width, outH / this._img.height);
+      let nx = outW / 2 - viewCX * ns;
+      let ny = outH / 2 - viewCY * ns;
+      nx = Math.min(0, Math.max(nx, outW - this._img.width  * ns));
+      ny = Math.min(0, Math.max(ny, outH - this._img.height * ns));
+      ctx.translate(nx, ny);
+      ctx.scale(ns, ns);
+    } else {
+      ctx.translate(this._x, this._y);
+      ctx.scale(this._scale, this._scale);
+    }
     ctx.drawImage(this._img, 0, 0);
     off.toBlob(blob => this._onConfirm(blob), 'image/jpeg', 0.92);
   }
