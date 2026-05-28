@@ -44,6 +44,17 @@ export class CropScreen {
     this._onMUp        = this._onMUp.bind(this);
     this._onWheel      = this._onWheel.bind(this);
     this._handleResize = this._handleResize.bind(this);
+
+    // [DEBUG] ─────────────────────────────────────────────────────────────
+    this._dbg = {
+      lastInitCanvas:   null,
+      lastHandleResize: null,
+      lastRender:       null,
+      initCount:        0,
+      resizeCount:      0,
+      renderCount:      0,
+    };
+    // ─────────────────────────────────────────────────────────────────────
   }
 
   // ── Public API ───────────────────────────────────────────────────────────
@@ -89,9 +100,29 @@ export class CropScreen {
     this._img = null;
   }
 
+  // [DEBUG] ─────────────────────────────────────────────────────────────
+  getDebugInfo() {
+    return {
+      cW: this._cW,             cH: this._cH,
+      scale: this._scale,       minScale: this._minScale,
+      origScale: this._origScale,
+      x: this._x,               y: this._y,
+      canvasPxW: this._canvas.width,   canvasPxH: this._canvas.height,
+      canvasStyleW: this._canvas.style.width,
+      canvasStyleH: this._canvas.style.height,
+      wrapClientW: this._wrap.clientWidth,
+      wrapClientH: this._wrap.clientHeight,
+      imgNatW: this._img?.naturalWidth  ?? null,
+      imgNatH: this._img?.naturalHeight ?? null,
+      ...this._dbg,
+    };
+  }
+  // ─────────────────────────────────────────────────────────────────────
+
   // ── Init / Fit ───────────────────────────────────────────────────────────
 
   _initCanvas() {
+    this._dbg.lastInitCanvas = Date.now(); this._dbg.initCount++; // [DEBUG]
     const w = this._wrap.clientWidth;
     const h = this._wrap.clientHeight;
     if (!w || !h) { requestAnimationFrame(() => this._initCanvas()); return; }
@@ -148,6 +179,7 @@ export class CropScreen {
 
   _render() {
     if (!this._img) return;
+    this._dbg.lastRender = Date.now(); this._dbg.renderCount++; // [DEBUG]
     const dpr = window.devicePixelRatio || 1;
     const ctx = this._canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -171,6 +203,7 @@ export class CropScreen {
     this._resizeTimer = setTimeout(() => {
       requestAnimationFrame(() => requestAnimationFrame(() => {
         if (!this._img) return;
+        this._dbg.lastHandleResize = Date.now(); this._dbg.resizeCount++; // [DEBUG]
         const w = this._wrap.clientWidth;
         const h = this._wrap.clientHeight;
         if (!w || !h) return;

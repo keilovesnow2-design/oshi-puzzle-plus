@@ -146,6 +146,12 @@ import { CropScreen } from './crop.js';
 // ── 公式LINE ── URL変更はここだけ
 const LINE_FRIEND_URL = 'https://lin.ee/zqaJ7zp';
 
+// [DEBUG] ?debug=1 のときだけデバッグパネルを表示 ───────────────────────────
+const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+let _currentScreen = 'boot';
+let _dbgResizeCount = 0, _dbgOrientCount = 0;
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ── 状態 ──
 let selectedCols = 4, selectedRows = 4;
 let imageBlob = null;
@@ -218,6 +224,7 @@ const cropScreen = new CropScreen({
 
 // ── 画面切替 ──
 function showScreen(name) {
+  _currentScreen = name; // [DEBUG]
   Object.values(screens).forEach(s => s.classList.add('hidden'));
   screens[name].classList.remove('hidden');
   if (name !== 'puzzle') {
@@ -420,6 +427,47 @@ readjustBtn.addEventListener('click', () => {
 // ── cropScreen ボタン ──
 cropConfirmBtn.addEventListener('click', () => cropScreen.confirm());
 cropBackBtn.addEventListener('click',    () => cropScreen.back());
+
+// [DEBUG] ─────────────────────────────────────────────────────────────────────
+if (DEBUG) {
+  window.addEventListener('resize',            () => _dbgResizeCount++);
+  window.addEventListener('orientationchange', () => _dbgOrientCount++);
+
+  const _dbgPanel = document.createElement('div');
+  _dbgPanel.id = 'debugPanel';
+  _dbgPanel.style.cssText = 'position:fixed;top:0;left:0;z-index:99999;width:230px;max-height:50vh;overflow-y:auto;background:rgba(0,0,0,0.85);color:#0ff;font:10px/1.55 monospace;padding:6px 8px;pointer-events:none;white-space:pre;border-bottom-right-radius:8px;';
+  document.body.appendChild(_dbgPanel);
+
+  const _t0 = Date.now();
+  const _ts = ms => ms ? `+${((ms - _t0)/1000).toFixed(2)}s` : '---';
+  (function _updateDebug() {
+    const vvp = window.visualViewport;
+    const info = cropScreen.getDebugInfo();
+    _dbgPanel.textContent = [
+      `[DBG] ${_currentScreen} dpr:${window.devicePixelRatio}`,
+      `win: ${window.innerWidth}×${window.innerHeight}`,
+      `vvp: ${vvp ? Math.round(vvp.width)+'×'+Math.round(vvp.height) : 'n/a'}`,
+      `ori: ${screen.orientation?.type ?? 'n/a'}`,
+      `─────`,
+      `wrap: ${info.wrapClientW}×${info.wrapClientH}`,
+      `canvasPx: ${info.canvasPxW}×${info.canvasPxH}`,
+      `style: "${info.canvasStyleW||''}×${info.canvasStyleH||''}"`,
+      `img: ${info.imgNatW??'-'}×${info.imgNatH??'-'}`,
+      `─────`,
+      `scale: ${info.scale.toFixed(4)}`,
+      `minScale: ${info.minScale.toFixed(4)}`,
+      `offset: ${info.x.toFixed(1)},${info.y.toFixed(1)}`,
+      `cW×cH: ${info.cW}×${info.cH}`,
+      `─────`,
+      `resize#: ${_dbgResizeCount} ori#: ${_dbgOrientCount}`,
+      `initCanvas: ${_ts(info.lastInitCanvas)} (${info.initCount}x)`,
+      `handleResize: ${_ts(info.lastHandleResize)} (${info.resizeCount}x)`,
+      `render: ${_ts(info.lastRender)} (${info.renderCount}x)`,
+    ].join('\n');
+    requestAnimationFrame(_updateDebug);
+  })();
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 boot();
 </script>
