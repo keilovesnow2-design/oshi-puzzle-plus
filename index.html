@@ -439,7 +439,7 @@ if (DEBUG) {
 
   const _dbgPanel = document.createElement('div');
   _dbgPanel.id = 'debugPanel';
-  _dbgPanel.style.cssText = 'position:fixed;top:0;left:0;z-index:99999;width:230px;min-height:20px;max-height:50vh;overflow-y:auto;background:rgba(0,0,0,0.9);color:#0ff;font:10px/1.55 monospace;padding:6px 8px;pointer-events:none;white-space:pre;border-bottom-right-radius:8px;';
+  _dbgPanel.style.cssText = 'position:fixed;top:0;left:0;z-index:999999;max-width:90vw;min-height:20px;max-height:50vh;overflow:auto;background:red;color:white;font-size:12px;line-height:1.5;font-family:monospace;padding:6px 8px;pointer-events:none;white-space:pre;';
   _dbgPanel.textContent = '[DBG] initializing...';
   document.body.appendChild(_dbgPanel);
 
