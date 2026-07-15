@@ -18,7 +18,7 @@
     }
   })();
   </script>
-  <link rel="stylesheet" href="style.css?v=0716e">
+  <link rel="stylesheet" href="style.css?v=0716f">
 </head>
 <body>
 
@@ -178,10 +178,10 @@
 // storage.js は puzzle.js 内部からも素のURLでimportされるため、二重インスタンス化を
 // 防ぐ目的であえて ?v= を付けない（付けると別モジュール扱いになりDB接続が分裂する）
 import { initDB, loadState, clearState, hasSavedState } from './storage.js';
-import { Puzzle, formatTime } from './puzzle.js?v=0716e';
-import { CropScreen } from './crop.js?v=0716e';
+import { Puzzle, formatTime } from './puzzle.js?v=0716f';
+import { CropScreen } from './crop.js?v=0716f';
 
-const APP_VERSION = 'v0716e';
+const APP_VERSION = 'v0716f';
 
 // ── ?debug=1: 画像選択の動作ログ（実機調査用・通常は非表示）──
 const DBG = /[?&]debug=1/.test(location.search);
@@ -513,23 +513,31 @@ resumePlayBtn.addEventListener('click', () => {
   if (puzzle) puzzle.resume();
 });
 
-// 中断して終了（状態は自動保存済み → リロードで再開ダイアログが出る）
+// 中断して終了（保存してスタート画面へ。次回開くと「続きから再開」が出る）
 async function quitToTop() {
   try { if (puzzle) await puzzle.saveNow(); } catch (e) { console.error('save failed:', e); }
-  location.reload();
+  if (puzzle) { puzzle.destroy(); puzzle = null; }
+  exitConfirm.classList.add('hidden');
+  resetImageSelection();
 }
 quitBtn.addEventListener('click', quitToTop);
 
 // ── ブラウザ/Androidの「戻る」対策 ──
-// puzzle/crop表示中は履歴に番人を1段積み、戻る操作をアプリ内の動きに変換する。
-// （何もしないと戻る=ページ離脱でゲームがいきなり消えてしまうため）
+// puzzle/crop表示中は履歴に番人を1段だけ積み、戻る操作をアプリ内の動きに変換する。
+// 番人は常に最大1個（積み重なると出口まで何回も戻るを押す羽目になるため）
 const exitConfirm = document.getElementById('exitConfirm');
-function armBackTrap() { history.pushState({ oshi: 1 }, ''); }
+let trapArmed = false;
+function armBackTrap() {
+  if (trapArmed) return;
+  trapArmed = true;
+  history.pushState({ oshi: 1 }, '');
+}
 
 window.addEventListener('popstate', () => {
+  trapArmed = false; // 戻る1回で番人は消費される
   const cur = Object.keys(screens).find(k => !screens[k].classList.contains('hidden'));
   if (cur === 'puzzle' && puzzle && !puzzle.completed) {
-    armBackTrap(); // 番人を再装填（もう一度戻ってもまた確認が出る）
+    armBackTrap(); // プレイ中だけ再装填（もう一度戻ってもまた確認が出る）
     menuSheet.classList.add('hidden');
     pauseOverlay.classList.add('hidden');
     puzzle.pause();
@@ -539,14 +547,10 @@ window.addEventListener('popstate', () => {
     armBackTrap();
     showCompleteScreen();
   } else if (cur === 'crop') {
-    armBackTrap();
-    cropScreen.back(); // アプリ内の「戻る」ボタンと同じ動き
+    cropScreen.back(); // アプリ内の「戻る」ボタンと同じ動き（再装填なし）
   } else if (cur === 'start' && imageBlob) {
-    // 画像選択済みのスタート画面: 戻る=選び直し（未選択状態へ）
-    armBackTrap();
-    resetImageSelection();
+    resetImageSelection(); // 選び直しへ（再装填なし → 次の戻るで離脱できる）
   } else if (cur === 'complete') {
-    // 完成画面: 戻る=スタート画面へ（画像は保持）
     armBackTrap();
     goStartWithImage();
   }
