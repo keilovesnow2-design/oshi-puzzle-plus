@@ -18,7 +18,7 @@
     }
   })();
   </script>
-  <link rel="stylesheet" href="style.css?v=0716b">
+  <link rel="stylesheet" href="style.css?v=0716c">
 </head>
 <body>
 
@@ -143,6 +143,15 @@
       <button class="btn btn-primary" id="resumePlayBtn">再開する</button>
     </div>
   </div>
+  <!-- 戻る操作の確認オーバーレイ -->
+  <div id="exitConfirm" class="pause-overlay hidden">
+    <div class="pause-box">
+      <div class="pause-title">ゲームを中断しますか？</div>
+      <p class="exit-note">ここまでの進み具合は自動保存されています。<br>次回開いたとき「続きから再開」できます。</p>
+      <button class="btn btn-primary" id="exitContinueBtn">遊び続ける</button>
+      <button class="btn btn-secondary" id="exitQuitBtn">中断して終了</button>
+    </div>
+  </div>
 </div>
 
 <!-- ===== クリア画面 ===== -->
@@ -168,10 +177,10 @@
 // storage.js は puzzle.js 内部からも素のURLでimportされるため、二重インスタンス化を
 // 防ぐ目的であえて ?v= を付けない（付けると別モジュール扱いになりDB接続が分裂する）
 import { initDB, loadState, clearState, hasSavedState } from './storage.js';
-import { Puzzle, formatTime } from './puzzle.js?v=0716b';
-import { CropScreen } from './crop.js?v=0716b';
+import { Puzzle, formatTime } from './puzzle.js?v=0716c';
+import { CropScreen } from './crop.js?v=0716c';
 
-const APP_VERSION = 'v0716b';
+const APP_VERSION = 'v0716c';
 
 // ── ?debug=1: 画像選択の動作ログ（実機調査用・通常は非表示）──
 const DBG = /[?&]debug=1/.test(location.search);
@@ -267,6 +276,7 @@ function showScreen(name) {
     refOverlay.classList.add('hidden');
     menuSheet.classList.add('hidden');
     pauseOverlay.classList.add('hidden');
+    exitConfirm.classList.add('hidden');
   }
 }
 
@@ -362,6 +372,7 @@ function setImage(file) {
   originalFileBlob = file;
   cropReturnState = 'new';
   showScreen('crop');
+  armBackTrap();
   cropScreen.open(originalFileBlob);
 }
 
@@ -395,6 +406,7 @@ function blobToImage(blob) {
 
 function startPuzzle(img, cols, rows, elapsed, savedPieces, savedVW, savedVH) {
   showScreen('puzzle');
+  armBackTrap();
   if (puzzle) puzzle.destroy();
 
   const total = cols * rows;
@@ -478,10 +490,38 @@ resumePlayBtn.addEventListener('click', () => {
 });
 
 // 中断して終了（状態は自動保存済み → リロードで再開ダイアログが出る）
-quitBtn.addEventListener('click', async () => {
+async function quitToTop() {
   try { if (puzzle) await puzzle.saveNow(); } catch (e) { console.error('save failed:', e); }
   location.reload();
+}
+quitBtn.addEventListener('click', quitToTop);
+
+// ── ブラウザ/Androidの「戻る」対策 ──
+// puzzle/crop表示中は履歴に番人を1段積み、戻る操作をアプリ内の動きに変換する。
+// （何もしないと戻る=ページ離脱でゲームがいきなり消えてしまうため）
+const exitConfirm = document.getElementById('exitConfirm');
+function armBackTrap() { history.pushState({ oshi: 1 }, ''); }
+
+window.addEventListener('popstate', () => {
+  const cur = Object.keys(screens).find(k => !screens[k].classList.contains('hidden'));
+  if (cur === 'puzzle' && puzzle && !puzzle.completed) {
+    armBackTrap(); // 番人を再装填（もう一度戻ってもまた確認が出る）
+    menuSheet.classList.add('hidden');
+    pauseOverlay.classList.add('hidden');
+    puzzle.pause();
+    exitConfirm.classList.remove('hidden');
+  } else if (cur === 'crop') {
+    armBackTrap();
+    cropScreen.back(); // アプリ内の「戻る」ボタンと同じ動き
+  }
+  // start / complete / resume では何もしない（そのまま離脱できる）
 });
+
+document.getElementById('exitContinueBtn').addEventListener('click', () => {
+  exitConfirm.classList.add('hidden');
+  if (puzzle) puzzle.resume();
+});
+document.getElementById('exitQuitBtn').addEventListener('click', quitToTop);
 
 // ── リセット ──
 resetBtn.addEventListener('click', async () => {
@@ -537,6 +577,7 @@ document.getElementById('completeLINEBtn').addEventListener('click', () => {
 readjustBtn.addEventListener('click', () => {
   cropReturnState = 'readjust';
   showScreen('crop');
+  armBackTrap();
   cropScreen.open(originalFileBlob);
 });
 
