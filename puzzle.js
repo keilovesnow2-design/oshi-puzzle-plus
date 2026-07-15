@@ -33,6 +33,7 @@ export class Puzzle {
     this.timerInterval  = null;
     this.saveTimer      = null;
     this.completed      = false;
+    this._paused        = false;
     this._resizeTimer   = null;
     this.savedVW        = savedVW;
     this.savedVH        = savedVH;
@@ -180,6 +181,7 @@ export class Puzzle {
   }
 
   _startDrag(x, y) {
+    if (this._paused) return false;
     const hit = this._hitTest(x, y);
     if (!hit) return false;
 
@@ -231,11 +233,11 @@ export class Puzzle {
 
   // ドラッググループが安全範囲から完全に外れないようにデルタを制限する
   // VIS: 最低限見えていなければならないピクセル数
-  // REF: 画面下部の「見本」ボタン確保領域（canvas座標）
+  // REF: 下部予約領域（バーはcanvas外になったため0）
   _clampGroupDelta(group, dx, dy) {
     const { pW, pH, vW, vH } = this;
     const VIS = 30;
-    const REF = 60;
+    const REF = 0;
     let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
     for (const p of group) {
       l = Math.min(l, p.x);   t = Math.min(t, p.y);
@@ -679,6 +681,16 @@ export class Puzzle {
 
   _stopTimer() { clearInterval(this.timerInterval); }
 
+  // 一時停止 / 再開（設定メニュー・一時停止オーバーレイから使用）
+  pause()  { if (this._paused || this.completed) return; this._paused = true;  this._stopTimer(); }
+  resume() { if (!this._paused || this.completed) return; this._paused = false; this._startTimer(); }
+
+  // 即時保存（「中断して終了」用。debounce を待たずに書き込む）
+  async saveNow() {
+    clearTimeout(this.saveTimer);
+    await this._save();
+  }
+
   _scheduleSave() {
     clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => this._save(), SAVE_DEBOUNCE);
@@ -688,7 +700,8 @@ export class Puzzle {
     if (this.completed || !this._imageBlob) return;
     await saveState({
       imageBlob: this._imageBlob,
-      pieces:    this.pieces.map(p => ({ ...p })),
+      // Path2Dキャッシュ(_path等)はIndexedDBに保存不可（DataCloneError）のため除外する
+      pieces:    this.pieces.map(({ _path, _pathPW, _pathPH, ...rest }) => rest),
       cols:      this.cols,
       rows:      this.rows,
       elapsed:   this.elapsed,

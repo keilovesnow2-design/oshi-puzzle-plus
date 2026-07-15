@@ -219,44 +219,12 @@ html, body {
   background: #0d0d1a;
 }
 
-.puzzle-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: rgba(13,13,26,0.95);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  z-index: 10;
-  gap: 8px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-
 .puzzle-timer {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--accent);
-  min-width: 60px;
-}
-
-.puzzle-progress {
-  flex: 1;
-  text-align: center;
-  font-size: 0.8rem;
-  color: var(--text-sub);
-}
-
-.progress-bar {
-  height: 3px;
-  background: rgba(255,255,255,0.1);
-  border-radius: 2px;
-  margin-top: 4px;
-  overflow: hidden;
+  min-width: 56px;
 }
 
 .progress-fill {
@@ -268,8 +236,124 @@ html, body {
 
 #canvasContainer {
   position: fixed;
-  inset: 52px 0 0 0;
+  inset: 0 0 54px 0;
   overflow: hidden;
+}
+
+/* ===== 下部バー ===== */
+.puzzle-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 54px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(10,10,26,0.94);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255,255,255,0.07);
+  z-index: 15;
+}
+
+.bar-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.08);
+}
+
+.bar-progress-text {
+  font-size: 0.78rem;
+  color: var(--text-sub);
+}
+
+.bar-spacer { flex: 1; }
+
+.bar-btn {
+  background: rgba(15,52,96,0.92);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 50px;
+  padding: 8px 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bar-btn:active { transform: scale(0.95); }
+
+/* ===== 設定メニュー ===== */
+.menu-sheet {
+  position: fixed;
+  right: 10px;
+  bottom: 64px;
+  z-index: 30;
+  background: var(--surface);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 230px;
+}
+
+.menu-sheet.hidden { display: none; }
+
+.menu-item {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  color: var(--text);
+  font-size: 0.88rem;
+  padding: 14px 18px;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.menu-item:last-child { border-bottom: none; }
+.menu-item:active { background: rgba(255,255,255,0.06); }
+.menu-item-danger { color: var(--accent); }
+
+.menu-sub {
+  font-size: 0.7rem;
+  color: var(--text-sub);
+  display: block;
+}
+
+/* ===== 一時停止オーバーレイ ===== */
+.pause-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(10,10,26,0.97);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pause-overlay.hidden { display: none; }
+
+.pause-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: min(80vw, 300px);
+}
+
+.pause-title {
+  font-size: 1.1rem;
+  color: var(--text-sub);
+  letter-spacing: 0.12em;
 }
 
 #puzzleCanvas {
@@ -292,32 +376,10 @@ html, body {
 }
 .complete-sub { color: var(--text-sub); font-size: 0.9rem; text-align: center; }
 
-/* ===== 見本ボタン ===== */
-.ref-btn {
-  position: fixed;
-  bottom: 16px;
-  right: 16px;
-  z-index: 20;
-  background: rgba(15,52,96,0.92);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 50px;
-  padding: 9px 16px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
-  transition: opacity 0.15s, transform 0.1s;
-}
-.ref-btn:active { transform: scale(0.95); }
-.ref-btn.hidden { display: none; }
-
 /* ===== 見本オーバーレイ ===== */
 .ref-overlay {
   position: fixed;
-  bottom: 60px;
+  bottom: 64px;
   right: 16px;
   z-index: 19;
   width: min(38vw, 170px);
@@ -456,10 +518,13 @@ html, body {
 /* ===== SAFE AREA ===== */
 @supports (padding: env(safe-area-inset-bottom)) {
   .screen { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
-  .puzzle-header { padding-top: calc(10px + env(safe-area-inset-top)); }
-  #canvasContainer { top: calc(52px + env(safe-area-inset-top)); }
-  .ref-btn     { bottom: calc(16px + env(safe-area-inset-bottom)); }
-  .ref-overlay { bottom: calc(60px + env(safe-area-inset-bottom)); }
+  .puzzle-bar {
+    height: calc(54px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #canvasContainer { bottom: calc(54px + env(safe-area-inset-bottom)); }
+  .menu-sheet  { bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .ref-overlay { bottom: calc(64px + env(safe-area-inset-bottom)); }
   .crop-header { padding-top: calc(12px + env(safe-area-inset-top)); }
   .crop-footer { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
 }

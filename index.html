@@ -18,7 +18,7 @@
     }
   })();
   </script>
-  <link rel="stylesheet" href="style.css?v=0716a">
+  <link rel="stylesheet" href="style.css?v=0716b">
 </head>
 <body>
 
@@ -112,25 +112,36 @@
 
 <!-- ===== パズル画面 ===== -->
 <div id="puzzleScreen" class="screen hidden">
-  <div class="puzzle-header">
-    <div class="puzzle-timer" id="timerDisplay">00:00</div>
-    <div class="puzzle-progress">
-      <div id="progressText">0 / 0</div>
-      <div class="progress-bar">
-        <div class="progress-fill" id="progressFill" style="width:0%"></div>
-      </div>
-    </div>
-    <button class="btn btn-danger" id="resetBtn" style="width:auto;max-width:none;padding:8px 14px;font-size:0.78rem;">リセット</button>
-  </div>
   <div id="canvasContainer">
     <canvas id="puzzleCanvas"></canvas>
   </div>
-  <!-- 見本ボタン -->
-  <button id="refBtn" class="ref-btn" aria-label="完成見本を表示">見本</button>
+  <!-- 下部バー: タイマー / 進捗 / 見本 / 設定 -->
+  <div class="puzzle-bar">
+    <div class="bar-progress"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="puzzle-timer" id="timerDisplay">00:00</div>
+    <div class="bar-progress-text" id="progressText">0 / 0</div>
+    <div class="bar-spacer"></div>
+    <button id="refBtn" class="bar-btn" aria-label="完成見本を表示">見本</button>
+    <button id="menuBtn" class="bar-btn" aria-label="設定">設定</button>
+  </div>
   <!-- 見本オーバーレイ（ブラウザ内画像のみ・サーバー非送信） -->
   <div id="refOverlay" class="ref-overlay hidden">
     <div class="ref-header">完成見本</div>
     <img id="refImg" alt="完成見本">
+  </div>
+  <!-- 設定メニュー -->
+  <div id="menuSheet" class="menu-sheet hidden">
+    <button class="menu-item" id="timerToggleBtn">タイマー表示: ON</button>
+    <button class="menu-item" id="pauseBtn">一時停止</button>
+    <button class="menu-item menu-item-danger" id="resetBtn">リセット</button>
+    <button class="menu-item" id="quitBtn">中断して終了<span class="menu-sub">（続きから再開できます）</span></button>
+  </div>
+  <!-- 一時停止オーバーレイ -->
+  <div id="pauseOverlay" class="pause-overlay hidden">
+    <div class="pause-box">
+      <div class="pause-title">一時停止中</div>
+      <button class="btn btn-primary" id="resumePlayBtn">再開する</button>
+    </div>
   </div>
 </div>
 
@@ -157,10 +168,10 @@
 // storage.js は puzzle.js 内部からも素のURLでimportされるため、二重インスタンス化を
 // 防ぐ目的であえて ?v= を付けない（付けると別モジュール扱いになりDB接続が分裂する）
 import { initDB, loadState, clearState, hasSavedState } from './storage.js';
-import { Puzzle, formatTime } from './puzzle.js?v=0716a';
-import { CropScreen } from './crop.js?v=0716a';
+import { Puzzle, formatTime } from './puzzle.js?v=0716b';
+import { CropScreen } from './crop.js?v=0716b';
 
-const APP_VERSION = 'v0716a';
+const APP_VERSION = 'v0716b';
 
 // ── ?debug=1: 画像選択の動作ログ（実機調査用・通常は非表示）──
 const DBG = /[?&]debug=1/.test(location.search);
@@ -254,9 +265,8 @@ function showScreen(name) {
   screens[name].classList.remove('hidden');
   if (name !== 'puzzle') {
     refOverlay.classList.add('hidden');
-    refBtn.classList.add('hidden');
-  } else {
-    refBtn.classList.remove('hidden');
+    menuSheet.classList.add('hidden');
+    pauseOverlay.classList.add('hidden');
   }
 }
 
@@ -423,6 +433,54 @@ function startPuzzle(img, cols, rows, elapsed, savedPieces, savedVW, savedVH) {
 // ── 見本トグル ──
 refBtn.addEventListener('click', () => {
   refOverlay.classList.toggle('hidden');
+});
+
+// ── 下部バー: 設定メニュー ──
+const menuBtn        = document.getElementById('menuBtn');
+const menuSheet      = document.getElementById('menuSheet');
+const timerToggleBtn = document.getElementById('timerToggleBtn');
+const pauseBtn       = document.getElementById('pauseBtn');
+const quitBtn        = document.getElementById('quitBtn');
+const pauseOverlay   = document.getElementById('pauseOverlay');
+const resumePlayBtn  = document.getElementById('resumePlayBtn');
+
+// メニューを開いている間はタイマーも停止する
+function setMenuOpen(open) {
+  menuSheet.classList.toggle('hidden', !open);
+  if (!puzzle) return;
+  if (open) puzzle.pause();
+  else if (pauseOverlay.classList.contains('hidden')) puzzle.resume();
+}
+menuBtn.addEventListener('click', () => setMenuOpen(menuSheet.classList.contains('hidden')));
+
+// タイマー表示 ON/OFF（設定は端末に保存）
+function applyTimerVisibility() {
+  const show = localStorage.getItem('oshiTimerVisible') !== '0';
+  timerDisplay.style.visibility = show ? '' : 'hidden';
+  timerToggleBtn.textContent = 'タイマー表示: ' + (show ? 'ON' : 'OFF');
+}
+timerToggleBtn.addEventListener('click', () => {
+  const show = localStorage.getItem('oshiTimerVisible') !== '0';
+  localStorage.setItem('oshiTimerVisible', show ? '0' : '1');
+  applyTimerVisibility();
+});
+applyTimerVisibility();
+
+// 一時停止 / 再開
+pauseBtn.addEventListener('click', () => {
+  setMenuOpen(false);
+  if (puzzle) puzzle.pause();
+  pauseOverlay.classList.remove('hidden');
+});
+resumePlayBtn.addEventListener('click', () => {
+  pauseOverlay.classList.add('hidden');
+  if (puzzle) puzzle.resume();
+});
+
+// 中断して終了（状態は自動保存済み → リロードで再開ダイアログが出る）
+quitBtn.addEventListener('click', async () => {
+  try { if (puzzle) await puzzle.saveNow(); } catch (e) { console.error('save failed:', e); }
+  location.reload();
 });
 
 // ── リセット ──
