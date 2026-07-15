@@ -234,6 +234,8 @@ export class CropScreen {
   // ── Resize ──────────────────────────────────────────────────────────────
 
   // debounce(220ms) + double-rAF: orientationchange後の多重発火とlayout安定待ちを両立
+  // ユーザーの調整（ズーム・位置）はリセットせず、視点中心と相対ズーム率を保存→復元する
+  // （Androidアドレスバー出没のわずかなresizeで調整が消えるのを防ぐ）
   _handleResize() {
     clearTimeout(this._resizeTimer);
     this._resizeTimer = setTimeout(() => {
@@ -243,8 +245,20 @@ export class CropScreen {
         const w = this._wrap.clientWidth;
         const h = this._wrap.clientHeight;
         if (!w || !h) return;
+        // 変更前の視点状態を保存（画像座標系での画面中心 + fit基準の相対ズーム率）
+        const hadView = this._cW > 0 && this._cH > 0 && this._scale > 0;
+        const viewCX  = hadView ? (this._cW / 2 - this._x) / this._scale : 0;
+        const viewCY  = hadView ? (this._cH / 2 - this._y) / this._scale : 0;
+        const relZoom = hadView ? this._scale / this._origScale : 1;
         this._updateCanvasBuffer(w, h);
-        this._fitImage();
+        this._fitImage(); // origScale/minScale を新寸法で再計算
+        if (hadView) {
+          // 相対ズームと視点中心を新寸法で復元（confirm()の再マッピングと同じ数学）
+          this._scale = this._origScale * relZoom;
+          this._x = w / 2 - viewCX * this._scale;
+          this._y = h / 2 - viewCY * this._scale;
+          this._clamp();
+        }
         this._scheduleRender();
       }));
     }, DEBOUNCE_MS);
