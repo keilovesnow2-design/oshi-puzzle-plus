@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#1a1a2e">
   <title>推しパズルメーカー</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=0715b">
 </head>
 <body>
 
@@ -75,6 +75,7 @@
     <p class="line-promo-text">アップデート情報や無料プレゼントを公式LINEでお届けします。<br>友だち追加してくださった方には、スマホで使える便利なミニアプリをプレゼント予定です。</p>
     <button class="btn btn-line" id="lineBtn">公式LINEを友だち追加する</button>
     <p class="line-notice">画像はサーバーに保存されず、端末内で処理されます。<br>このアプリは無料お試し版です。</p>
+    <p class="version-tag" id="versionTag"></p>
   </div>
 </div>
 
@@ -140,9 +141,27 @@
 </div>
 
 <script type="module">
+// ?v= はキャッシュバスター。更新時は APP_VERSION と合わせて全箇所書き換えること。
+// storage.js は puzzle.js 内部からも素のURLでimportされるため、二重インスタンス化を
+// 防ぐ目的であえて ?v= を付けない（付けると別モジュール扱いになりDB接続が分裂する）
 import { initDB, loadState, clearState, hasSavedState } from './storage.js';
-import { Puzzle, formatTime } from './puzzle.js';
-import { CropScreen } from './crop.js';
+import { Puzzle, formatTime } from './puzzle.js?v=0715b';
+import { CropScreen } from './crop.js?v=0715b';
+
+const APP_VERSION = 'v0715b';
+
+// ── ?debug=1: 画像選択の動作ログ（実機調査用・通常は非表示）──
+const DBG = /[?&]debug=1/.test(location.search);
+let dbgBox = null;
+function dbgLog(msg) {
+  if (!DBG) return;
+  if (!dbgBox) {
+    dbgBox = document.createElement('div');
+    dbgBox.style.cssText = 'position:fixed;left:4px;bottom:4px;z-index:99999;background:rgba(0,0,0,0.85);color:#0f0;font-size:11px;padding:6px 8px;border-radius:6px;max-width:92vw;pointer-events:none;white-space:pre-wrap;font-family:monospace;';
+    document.body.appendChild(dbgBox);
+  }
+  dbgBox.textContent += (dbgBox.textContent ? '\n' : '') + new Date().toTimeString().slice(0, 8) + ' ' + msg;
+}
 
 // ── 公式LINE ── URL変更はここだけ
 const LINE_FRIEND_URL = 'https://lin.ee/zqaJ7zp';
@@ -237,6 +256,8 @@ function updateProgress(total) {
 }
 
 // ── 起動 ──
+document.getElementById('versionTag').textContent = APP_VERSION + (DBG ? ' (debug)' : '');
+
 async function boot() {
   await initDB();
   if (hasSavedState()) {
@@ -271,13 +292,18 @@ newGameBtn.addEventListener('click', async () => {
 // Android Chrome既知問題対策: 写真ピッカーをキャンセルすると同じinput要素が
 // 再び開かなくなることがあるため、選択/キャンセルの度にinputを新品に作り直す
 function bindFileInput(el) {
+  el.addEventListener('click', () => dbgLog('input click'));
   el.addEventListener('change', e => {
     const file = e.target.files[0];
+    dbgLog('change files=' + e.target.files.length);
     rebuildFileInput();
     if (!file) return;
     setImage(file);
   });
-  el.addEventListener('cancel', rebuildFileInput);
+  el.addEventListener('cancel', () => {
+    dbgLog('cancel');
+    rebuildFileInput();
+  });
 }
 
 function rebuildFileInput() {
@@ -285,11 +311,14 @@ function rebuildFileInput() {
   fileInput.replaceWith(fresh);
   fileInput = fresh;
   bindFileInput(fresh);
+  dbgLog('input rebuilt');
 }
 
 bindFileInput(fileInput);
 
 const uploadArea = document.getElementById('uploadArea');
+// [debug] タップがどの要素に届いているかを記録（input以外に吸われていないか確認用）
+uploadArea.addEventListener('pointerdown', e => dbgLog('area tap → ' + (e.target.id || e.target.tagName)));
 uploadArea.addEventListener('dragover',  e => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
 uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
 uploadArea.addEventListener('drop', e => {

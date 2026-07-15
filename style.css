@@ -440,6 +440,13 @@ html, body {
   line-height: 1.55;
 }
 
+/* バージョン表示（キャッシュ確認用） */
+.version-tag {
+  font-size: 0.6rem;
+  color: rgba(160,160,176,0.35);
+  margin-top: 8px;
+}
+
 .line-hint {
   font-size: 0.78rem;
   color: rgba(160,160,176,0.55);
