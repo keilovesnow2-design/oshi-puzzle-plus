@@ -7,7 +7,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#1a1a2e">
   <title>推しパズルメーカー</title>
-  <link rel="stylesheet" href="style.css?v=0715b">
+  <script>
+  // LINEアプリ内ブラウザでは画像選択(input type=file)が正常動作しないため、
+  // LINE公式のURLパラメータ openExternalBrowser=1 を付けて外部ブラウザへ誘導する
+  (function () {
+    if (!/\bLine\//i.test(navigator.userAgent)) return;
+    if (!/[?&]openExternalBrowser=1/.test(location.search)) {
+      var sep = location.search ? '&' : '?';
+      location.replace(location.href.split('#')[0] + sep + 'openExternalBrowser=1');
+    }
+  })();
+  </script>
+  <link rel="stylesheet" href="style.css?v=0715c">
 </head>
 <body>
 
@@ -145,10 +156,10 @@
 // storage.js は puzzle.js 内部からも素のURLでimportされるため、二重インスタンス化を
 // 防ぐ目的であえて ?v= を付けない（付けると別モジュール扱いになりDB接続が分裂する）
 import { initDB, loadState, clearState, hasSavedState } from './storage.js';
-import { Puzzle, formatTime } from './puzzle.js?v=0715b';
-import { CropScreen } from './crop.js?v=0715b';
+import { Puzzle, formatTime } from './puzzle.js?v=0715c';
+import { CropScreen } from './crop.js?v=0715c';
 
-const APP_VERSION = 'v0715b';
+const APP_VERSION = 'v0715c';
 
 // ── ?debug=1: 画像選択の動作ログ（実機調査用・通常は非表示）──
 const DBG = /[?&]debug=1/.test(location.search);
@@ -257,6 +268,14 @@ function updateProgress(total) {
 
 // ── 起動 ──
 document.getElementById('versionTag').textContent = APP_VERSION + (DBG ? ' (debug)' : '');
+
+// LINE内ブラウザのまま表示されている場合（外部ブラウザ誘導が効かなかった場合）の案内
+if (/\bLine\//i.test(navigator.userAgent)) {
+  const tip = document.createElement('div');
+  tip.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#06c755;color:#fff;font-size:12px;line-height:1.6;padding:8px 12px;text-align:center;';
+  tip.textContent = 'LINE内ブラウザでは画像選択が動かないことがあります。画面右下の「…」メニュー →「他のアプリで開く」でブラウザからご利用ください。';
+  document.body.appendChild(tip);
+}
 
 async function boot() {
   await initDB();
