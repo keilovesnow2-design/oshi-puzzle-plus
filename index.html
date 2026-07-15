@@ -18,7 +18,7 @@
     }
   })();
   </script>
-  <link rel="stylesheet" href="style.css?v=0716c">
+  <link rel="stylesheet" href="style.css?v=0716d">
 </head>
 <body>
 
@@ -177,10 +177,10 @@
 // storage.js は puzzle.js 内部からも素のURLでimportされるため、二重インスタンス化を
 // 防ぐ目的であえて ?v= を付けない（付けると別モジュール扱いになりDB接続が分裂する）
 import { initDB, loadState, clearState, hasSavedState } from './storage.js';
-import { Puzzle, formatTime } from './puzzle.js?v=0716c';
-import { CropScreen } from './crop.js?v=0716c';
+import { Puzzle, formatTime } from './puzzle.js?v=0716d';
+import { CropScreen } from './crop.js?v=0716d';
 
-const APP_VERSION = 'v0716c';
+const APP_VERSION = 'v0716d';
 
 // ── ?debug=1: 画像選択の動作ログ（実機調査用・通常は非表示）──
 const DBG = /[?&]debug=1/.test(location.search);
@@ -513,8 +513,16 @@ window.addEventListener('popstate', () => {
   } else if (cur === 'crop') {
     armBackTrap();
     cropScreen.back(); // アプリ内の「戻る」ボタンと同じ動き
+  } else if (cur === 'start' && imageBlob) {
+    // 画像選択済みのスタート画面: 戻る=選び直し（未選択状態へ）
+    armBackTrap();
+    resetImageSelection();
+  } else if (cur === 'complete') {
+    // 完成画面: 戻る=スタート画面へ（画像は保持）
+    armBackTrap();
+    goStartWithImage();
   }
-  // start / complete / resume では何もしない（そのまま離脱できる）
+  // それ以外（未選択のスタート画面・再開ダイアログ）は素通し=離脱できる
 });
 
 document.getElementById('exitContinueBtn').addEventListener('click', () => {
@@ -541,7 +549,7 @@ resetBtn.addEventListener('click', async () => {
 });
 
 // ── もう一度遊ぶ（同じ画像で再挑戦）──
-playAgainBtn.addEventListener('click', () => {
+function goStartWithImage() {
   if (imageBlob) {
     previewImg.src = URL.createObjectURL(imageBlob);
     previewImg.style.display = 'block';
@@ -550,10 +558,11 @@ playAgainBtn.addEventListener('click', () => {
     readjustBtn.style.display = originalFileBlob ? '' : 'none';
   }
   showScreen('start');
-});
+}
+playAgainBtn.addEventListener('click', goStartWithImage);
 
-// ── トップに戻る（画像クリア）──
-backToTopBtn.addEventListener('click', () => {
+// ── トップに戻る（画像を未選択状態に戻す）──
+function resetImageSelection() {
   imageBlob = null;
   originalFileBlob = null;
   if (refObjectURL) { URL.revokeObjectURL(refObjectURL); refObjectURL = null; }
@@ -563,7 +572,8 @@ backToTopBtn.addEventListener('click', () => {
   readjustBtn.style.display = 'none';
   fileInput.value = '';
   showScreen('start');
-});
+}
+backToTopBtn.addEventListener('click', resetImageSelection);
 
 // ── LINE友だち追加 ──
 document.getElementById('lineBtn').addEventListener('click', () => {
