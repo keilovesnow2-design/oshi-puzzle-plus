@@ -78,8 +78,19 @@ export class CropScreen {
     this._detachEvents();
     const dpr = window.devicePixelRatio || 1;
     const isLandscape = this._cW > this._cH;
-    const outW = isLandscape ? this._cH : this._cW;
-    const outH = isLandscape ? this._cW : this._cH;
+    let outW, outH;
+    if (isLandscape) {
+      // 横画面: 画像の元アスペクト比を維持した portrait サイズで出力
+      const longSide = Math.max(this._cW, this._cH);
+      outH = longSide;
+      outW = Math.round(
+        Math.min(this._img.width, this._img.height) /
+        Math.max(this._img.width, this._img.height) * longSide
+      );
+    } else {
+      outW = this._cW;
+      outH = this._cH;
+    }
     const off = document.createElement('canvas');
     off.width  = Math.round(outW * dpr);
     off.height = Math.round(outH * dpr);
@@ -88,7 +99,7 @@ export class CropScreen {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, outW, outH);
     if (isLandscape) {
-      // 横画面でも portrait blob を出力: 現在の視点中心を portrait 座標系に再マッピング
+      // 視点中心を portrait 座標系に再マッピング
       const viewCX = (this._cW / 2 - this._x) / this._scale;
       const viewCY = (this._cH / 2 - this._y) / this._scale;
       const ns = Math.max(outW / this._img.width, outH / this._img.height);
@@ -158,22 +169,29 @@ export class CropScreen {
     this._cH = h;
   }
 
-  // cover: 画像がキャンバス全体を必ず覆うスケールで中央配置
+  // portrait-equivalent fit: 縦横問わず portrait 比率でスケールを決定
+  // 横画面では画像は canvas 幅に収まり、縦方向にはみ出す（黒帯なし、縦クリップあり）
   _fitImage() {
     const { _img: img, _cW: w, _cH: h } = this;
-    this._origScale = Math.max(w / img.width, h / img.height);
+    const fw = Math.min(w, h);
+    const fh = Math.max(w, h);
+    this._origScale = Math.max(fw / img.width, fh / img.height);
     this._minScale  = this._origScale;
     this._scale     = this._origScale;
     this._x = (w - img.width  * this._scale) / 2;
     this._y = (h - img.height * this._scale) / 2;
   }
 
-  // 画像がキャンバスをはみ出さない範囲にクランプ（空白防止）
+  // 画像がcanvasより大きい軸はクランプ、小さい軸は中央固定（黒帯を維持）
   _clamp() {
     const iW = this._img.width  * this._scale;
     const iH = this._img.height * this._scale;
-    this._x = Math.min(0, Math.max(this._x, this._cW - iW));
-    this._y = Math.min(0, Math.max(this._y, this._cH - iH));
+    this._x = iW >= this._cW
+      ? Math.min(0, Math.max(this._x, this._cW - iW))
+      : (this._cW - iW) / 2;
+    this._y = iH >= this._cH
+      ? Math.min(0, Math.max(this._y, this._cH - iH))
+      : (this._cH - iH) / 2;
   }
 
   _applyZoom(ns, px, py) {
