@@ -18,7 +18,7 @@
     }
   })();
   </script>
-  <link rel="stylesheet" href="style.css?v=0715c">
+  <link rel="stylesheet" href="style.css?v=0716a">
 </head>
 <body>
 
@@ -106,6 +106,7 @@
   <div class="crop-footer">
     <div id="cropQualityWarn" class="crop-quality-warn hidden">⚠ 拡大しすぎると画質が粗くなる場合があります</div>
     <button class="btn btn-primary" id="cropConfirmBtn">この範囲で決定</button>
+    <button class="crop-whole-btn" id="cropWholeBtn">写真全体をそのまま使う（文字も入る）</button>
   </div>
 </div>
 
@@ -156,10 +157,10 @@
 // storage.js は puzzle.js 内部からも素のURLでimportされるため、二重インスタンス化を
 // 防ぐ目的であえて ?v= を付けない（付けると別モジュール扱いになりDB接続が分裂する）
 import { initDB, loadState, clearState, hasSavedState } from './storage.js';
-import { Puzzle, formatTime } from './puzzle.js?v=0715c';
-import { CropScreen } from './crop.js?v=0715c';
+import { Puzzle, formatTime } from './puzzle.js?v=0716a';
+import { CropScreen } from './crop.js?v=0716a';
 
-const APP_VERSION = 'v0715c';
+const APP_VERSION = 'v0716a';
 
 // ── ?debug=1: 画像選択の動作ログ（実機調査用・通常は非表示）──
 const DBG = /[?&]debug=1/.test(location.search);
@@ -484,6 +485,7 @@ readjustBtn.addEventListener('click', () => {
 // ── cropScreen ボタン ──
 cropConfirmBtn.addEventListener('click', () => cropScreen.confirm());
 cropBackBtn.addEventListener('click',    () => cropScreen.back());
+document.getElementById('cropWholeBtn').addEventListener('click', () => cropScreen.confirmWhole());
 
 boot();
 </script>

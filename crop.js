@@ -117,6 +117,20 @@ export class CropScreen {
     off.toBlob(blob => this._onConfirm(blob), 'image/jpeg', 0.92);
   }
 
+  // 写真全体をそのまま使う（トリミングなし・長辺2048px上限に縮小のみ）
+  confirmWhole() {
+    if (!this._img) return;
+    this._detachEvents();
+    const img = this._img;
+    const scale = Math.min(1, 2048 / Math.max(img.width, img.height));
+    const off = document.createElement('canvas');
+    off.width  = Math.round(img.width  * scale);
+    off.height = Math.round(img.height * scale);
+    const ctx = off.getContext('2d');
+    ctx.drawImage(img, 0, 0, off.width, off.height);
+    off.toBlob(blob => this._onConfirm(blob), 'image/jpeg', 0.92);
+  }
+
   back() {
     this._detachEvents();
     this._onBack();

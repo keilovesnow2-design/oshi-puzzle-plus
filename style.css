@@ -580,6 +580,23 @@ html, body {
   border-color: var(--accent);
 }
 
+.crop-whole-btn {
+  display: block;
+  width: 100%;
+  padding: 9px 16px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 50px;
+  color: var(--text-sub);
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.crop-whole-btn:active { border-color: rgba(255,255,255,0.5); }
+
 .crop-quality-warn {
   font-size: 0.72rem;
   color: #f5a623;

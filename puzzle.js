@@ -84,8 +84,13 @@ export class Puzzle {
     this.vW = w;
     this.vH = h;
 
-    this.pW = Math.floor(w * 0.85 / this.cols);
-    this.pH = Math.floor(h * 0.85 / this.rows);
+    // 盤面は写真の縦横比を保って最大サイズで配置（引き伸ばし歪み防止）
+    const imgAR = this.image.width / this.image.height;
+    let bW = w * 0.85;
+    let bH = bW / imgAR;
+    if (bH > h * 0.85) { bH = h * 0.85; bW = bH * imgAR; }
+    this.pW = Math.floor(bW / this.cols);
+    this.pH = Math.floor(bH / this.rows);
     this.gX = Math.floor((w - this.pW * this.cols) / 2);
     this.gY = Math.floor((h - this.pH * this.rows) / 2);
 
