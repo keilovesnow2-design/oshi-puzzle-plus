@@ -7,8 +7,8 @@
 
 import { saveState, clearState } from './storage.js';
 
-const PIECE_SNAP  = 0.38; // 隣接ピース間スナップ閾値（38%）
-const BOARD_SNAP  = 0.50; // 盤面スナップ閾値（50%）
+const PIECE_SNAP  = 0.30; // 隣接ピース間スナップ閾値（30%）
+const BOARD_SNAP  = 0.32; // 盤面スナップ閾値（32%）— 甘すぎると「自分ではめた感」が失われる
 const DELTAS = [[-1,0],[1,0],[0,-1],[0,1]];
 const SAVE_DEBOUNCE = 500;
 
@@ -34,6 +34,8 @@ export class Puzzle {
     this.saveTimer      = null;
     this.completed      = false;
     this._paused        = false;
+    this._completeFade  = 0;
+    this._destroyed     = false;
     this._resizeTimer   = null;
     this.savedVW        = savedVW;
     this.savedVH        = savedVH;
@@ -87,9 +89,9 @@ export class Puzzle {
 
     // 盤面は写真の縦横比を保って最大サイズで配置（引き伸ばし歪み防止）
     const imgAR = this.image.width / this.image.height;
-    let bW = w * 0.85;
+    let bW = w * 0.97;
     let bH = bW / imgAR;
-    if (bH > h * 0.85) { bH = h * 0.85; bW = bH * imgAR; }
+    if (bH > h * 0.97) { bH = h * 0.97; bW = bH * imgAR; }
     this.pW = Math.floor(bW / this.cols);
     this.pH = Math.floor(bH / this.rows);
     this.gX = Math.floor((w - this.pW * this.cols) / 2);
@@ -417,78 +419,22 @@ export class Puzzle {
     ctx.drawImage(this.image, this.gX, this.gY, pW * cols, pH * rows);
     ctx.restore();
 
-    // スナッププレビュー（ドラッグ中のみ）
-    if (this.dragSet) this._drawSnapPreview();
-
     // 描画順: 配置済み → 浮遊 → ドラッグ中（最前面）
     for (const p of this.pieces) if (p.placed)  this._drawPiece(p, false);
     for (const p of this.pieces) if (!p.placed && (!this.dragSet || !this.dragSet.has(p))) this._drawPiece(p, false);
     if (this.dragSet) for (const p of this.dragSet) this._drawPiece(p, true);
-  }
 
-  _drawSnapPreview() {
-    const group = [...this.dragSet];
-    const gids  = new Set(group.map(p => p.groupId));
-    const { pW, pH, ctx } = this;
-
-    // ── ピース同士スナッププレビュー ──
-    let bestSnap = null, bestErr = Infinity;
-    for (const PA of group) {
-      for (const [dc, dr] of DELTAS) {
-        const PB = this._find(PA.c + dc, PA.r + dr);
-        if (!PB || gids.has(PB.groupId)) continue;
-        const errX = Math.abs((PB.x - PA.x) - dc * pW);
-        const errY = Math.abs((PB.y - PA.y) - dr * pH);
-        // プレビューは閾値を1.6倍（少し手前から表示）
-        if (errX < pW * PIECE_SNAP * 1.6 && errY < pH * PIECE_SNAP * 1.6) {
-          const err = errX + errY;
-          if (err < bestErr) { bestErr = err; bestSnap = { PA, PB, dc, dr }; }
-        }
-      }
-    }
-
-    if (bestSnap) {
-      const { PA, PB, dc, dr } = bestSnap;
-      const moveX = (PB.x - dc * pW) - PA.x;
-      const moveY = (PB.y - dr * pH) - PA.y;
+    // 完成演出: 継ぎ目・枠線の上に完全な写真をフェードインさせる
+    if (this.completed && this._completeFade > 0) {
       ctx.save();
-      ctx.fillStyle   = 'rgba(100,210,255,0.18)';
-      ctx.strokeStyle = 'rgba(100,210,255,0.85)';
-      ctx.lineWidth   = 2;
-      for (const p of group) {
-        ctx.save();
-        ctx.translate(p.x + moveX, p.y + moveY);
-        const prev = this._getPiecePath(p);
-        ctx.fill(prev);
-        ctx.stroke(prev);
-        ctx.restore();
-      }
+      ctx.globalAlpha = this._completeFade;
+      ctx.drawImage(this.image, this.gX, this.gY, this.pW * this.cols, this.pH * this.rows);
       ctx.restore();
-      return;
-    }
-
-    // ── 盤面スナッププレビュー ──
-    for (const P of group) {
-      const cx = this._cx(P), cy = this._cy(P);
-      if (Math.abs(P.x - cx) < pW * BOARD_SNAP && Math.abs(P.y - cy) < pH * BOARD_SNAP) {
-        const moveX = cx - P.x, moveY = cy - P.y;
-        ctx.save();
-        ctx.fillStyle   = 'rgba(255,215,0,0.18)';
-        ctx.strokeStyle = '#FFD700';
-        ctx.lineWidth   = 2;
-        for (const p of group) {
-          ctx.save();
-          ctx.translate(p.x + moveX, p.y + moveY);
-          const prev = this._getPiecePath(p);
-          ctx.fill(prev);
-          ctx.stroke(prev);
-          ctx.restore();
-        }
-        ctx.restore();
-        return;
-      }
     }
   }
+
+  // 注: スナップ位置の光る予告表示(_drawSnapPreview)は「答えがわかってしまう」ため
+  // 削除した（吸着の挙動自体は _tryPieceSnap / _tryBoardSnap で健在）
 
   _drawPiece(p, isDragging) {
     const { ctx, image, pW, pH, cols, rows } = this;
@@ -718,10 +664,26 @@ export class Puzzle {
     this._stopTimer();
     this._detachEvents();
     clearState();
+    // 完成演出（継ぎ目フェードアウト）を開始し、アプリ側にはバー切替のみ通知。
+    // 画面遷移はユーザーが「終了する」を押すまで行わない（眺め放題）
+    this._animateComplete();
     if (this.onComplete) this.onComplete(this.elapsed);
   }
 
+  // 完成演出: 900msかけて継ぎ目・枠線を消し、写真100%へ
+  _animateComplete() {
+    const t0 = performance.now(), DUR = 900;
+    const step = (now) => {
+      if (this._destroyed) return;
+      this._completeFade = Math.min(1, (now - t0) / DUR);
+      this._render();
+      if (this._completeFade < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
   destroy() {
+    this._destroyed = true;
     this._stopTimer();
     this._detachEvents();
     clearTimeout(this.saveTimer);

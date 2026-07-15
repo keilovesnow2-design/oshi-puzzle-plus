@@ -18,7 +18,7 @@
     }
   })();
   </script>
-  <link rel="stylesheet" href="style.css?v=0716d">
+  <link rel="stylesheet" href="style.css?v=0716e">
 </head>
 <body>
 
@@ -123,6 +123,7 @@
     <div class="bar-spacer"></div>
     <button id="refBtn" class="bar-btn" aria-label="完成見本を表示">見本</button>
     <button id="menuBtn" class="bar-btn" aria-label="設定">設定</button>
+    <button id="finishBtn" class="bar-btn bar-btn-primary" style="display:none">終了する</button>
   </div>
   <!-- 見本オーバーレイ（ブラウザ内画像のみ・サーバー非送信） -->
   <div id="refOverlay" class="ref-overlay hidden">
@@ -177,10 +178,10 @@
 // storage.js は puzzle.js 内部からも素のURLでimportされるため、二重インスタンス化を
 // 防ぐ目的であえて ?v= を付けない（付けると別モジュール扱いになりDB接続が分裂する）
 import { initDB, loadState, clearState, hasSavedState } from './storage.js';
-import { Puzzle, formatTime } from './puzzle.js?v=0716d';
-import { CropScreen } from './crop.js?v=0716d';
+import { Puzzle, formatTime } from './puzzle.js?v=0716e';
+import { CropScreen } from './crop.js?v=0716e';
 
-const APP_VERSION = 'v0716d';
+const APP_VERSION = 'v0716e';
 
 // ── ?debug=1: 画像選択の動作ログ（実機調査用・通常は非表示）──
 const DBG = /[?&]debug=1/.test(location.search);
@@ -411,6 +412,11 @@ function startPuzzle(img, cols, rows, elapsed, savedPieces, savedVW, savedVH) {
 
   const total = cols * rows;
 
+  // バーを通常状態に戻す
+  refBtn.style.display = '';
+  menuBtn.style.display = '';
+  finishBtn.style.display = 'none';
+
   if (refObjectURL) URL.revokeObjectURL(refObjectURL);
   refObjectURL = URL.createObjectURL(imageBlob);
   refImg.src = refObjectURL;
@@ -426,10 +432,16 @@ function startPuzzle(img, cols, rows, elapsed, savedPieces, savedVW, savedVH) {
     savedVW,
     savedVH,
     onComplete: sec => {
-      showScreen('complete');
-      document.getElementById('completeTime').textContent = formatTime(sec);
-      document.getElementById('completeSub').textContent =
-        `${cols * rows}ピースを${Math.floor(sec/60)}分${sec%60}秒でクリア！`;
+      // 完成: 画面は切り替えず眺め放題モードへ（バーだけ変身）
+      lastClearSec = sec;
+      lastClearTotal = total;
+      refOverlay.classList.add('hidden');
+      menuSheet.classList.add('hidden');
+      refBtn.style.display = 'none';
+      menuBtn.style.display = 'none';
+      finishBtn.style.display = '';
+      progressText.textContent = '完成！🎉';
+      timerDisplay.textContent = formatTime(sec);
     },
     onUpdate: sec => {
       timerDisplay.textContent = formatTime(sec);
@@ -440,7 +452,19 @@ function startPuzzle(img, cols, rows, elapsed, savedPieces, savedVW, savedVH) {
   puzzle.setImageBlob(imageBlob);
   updateProgress(total);
   timerDisplay.textContent = formatTime(elapsed);
+  if (DBG) window.__puzzle = puzzle; // [debug] 実機/自動テスト用フック
 }
+
+// ── 完成後「終了する」→ お祝い画面 ──
+let lastClearSec = 0, lastClearTotal = 0;
+const finishBtn = document.getElementById('finishBtn');
+function showCompleteScreen() {
+  showScreen('complete');
+  document.getElementById('completeTime').textContent = formatTime(lastClearSec);
+  document.getElementById('completeSub').textContent =
+    `${lastClearTotal}ピースを${Math.floor(lastClearSec/60)}分${lastClearSec%60}秒でクリア！`;
+}
+finishBtn.addEventListener('click', showCompleteScreen);
 
 // ── 見本トグル ──
 refBtn.addEventListener('click', () => {
@@ -510,6 +534,10 @@ window.addEventListener('popstate', () => {
     pauseOverlay.classList.add('hidden');
     puzzle.pause();
     exitConfirm.classList.remove('hidden');
+  } else if (cur === 'puzzle' && puzzle && puzzle.completed) {
+    // 完成後の眺め放題中に戻る → 「終了する」と同じ動き
+    armBackTrap();
+    showCompleteScreen();
   } else if (cur === 'crop') {
     armBackTrap();
     cropScreen.back(); // アプリ内の「戻る」ボタンと同じ動き
