@@ -163,7 +163,7 @@ const screens = {
   puzzle:   document.getElementById('puzzleScreen'),
   complete: document.getElementById('completeScreen'),
 };
-const fileInput         = document.getElementById('fileInput');
+let fileInput           = document.getElementById('fileInput'); // 再生成するためlet
 const previewImg        = document.getElementById('previewImg');
 const uploadPlaceholder = document.getElementById('uploadPlaceholder');
 const startBtn          = document.getElementById('startBtn');
@@ -268,11 +268,26 @@ newGameBtn.addEventListener('click', async () => {
 });
 
 // ── 画像選択 ──
-fileInput.addEventListener('change', e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  setImage(file);
-});
+// Android Chrome既知問題対策: 写真ピッカーをキャンセルすると同じinput要素が
+// 再び開かなくなることがあるため、選択/キャンセルの度にinputを新品に作り直す
+function bindFileInput(el) {
+  el.addEventListener('change', e => {
+    const file = e.target.files[0];
+    rebuildFileInput();
+    if (!file) return;
+    setImage(file);
+  });
+  el.addEventListener('cancel', rebuildFileInput);
+}
+
+function rebuildFileInput() {
+  const fresh = fileInput.cloneNode(false);
+  fileInput.replaceWith(fresh);
+  fileInput = fresh;
+  bindFileInput(fresh);
+}
+
+bindFileInput(fileInput);
 
 const uploadArea = document.getElementById('uploadArea');
 uploadArea.addEventListener('dragover',  e => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
