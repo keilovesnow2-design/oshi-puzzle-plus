@@ -188,6 +188,16 @@ html, body {
   padding: 10px 20px;
 }
 
+/* パズルをはじめる: スマホでスクロールしなくても押せるよう画面下に張り付く
+   （コンテンツが全部収まる画面では通常の位置に表示される） */
+#startBtn {
+  position: sticky;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  z-index: 5;
+  flex-shrink: 0;
+  box-shadow: 0 4px 22px rgba(0,0,0,0.6);
+}
+
 /* ===== RESUME DIALOG ===== */
 #resumeDialog {
   background: rgba(0,0,0,0.8);
@@ -684,6 +694,9 @@ html, body {
   border-radius: 6px;
   border: 1px solid rgba(245,166,35,0.2);
 }
+
+/* display:noneではなくvisibilityで消す（出没時に決定ボタンの位置が跳ねないよう場所は確保） */
+.crop-quality-warn.hidden { visibility: hidden; }
 
 /* 横画面案内バナー: portrait では非表示 */
 #cropLandscapeWarn {

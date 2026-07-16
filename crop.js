@@ -74,46 +74,26 @@ export class CropScreen {
     img.src = url;
   }
 
+  // 画面枠を画像座標系に変換し、画像と枠の交差部分だけを元画像の解像度で切り出す。
+  // 黒帯（contain時の余白）は出力に含まれない。画像座標系で処理するため
+  // 画面の向き（縦横）に依存せず、旧・横画面portrait再マッピングは不要になった。
   confirm() {
+    if (!this._img) return;
     this._detachEvents();
-    const dpr = window.devicePixelRatio || 1;
-    const isLandscape = this._cW > this._cH;
-    let outW, outH;
-    if (isLandscape) {
-      // 横画面: 画像の元アスペクト比を維持した portrait サイズで出力
-      const longSide = Math.max(this._cW, this._cH);
-      outH = longSide;
-      outW = Math.round(
-        Math.min(this._img.width, this._img.height) /
-        Math.max(this._img.width, this._img.height) * longSide
-      );
-    } else {
-      outW = this._cW;
-      outH = this._cH;
-    }
+    const img = this._img;
+    const sx = Math.max(0, -this._x / this._scale);
+    const sy = Math.max(0, -this._y / this._scale);
+    const ex = Math.min(img.width,  (this._cW - this._x) / this._scale);
+    const ey = Math.min(img.height, (this._cH - this._y) / this._scale);
+    const sw = ex - sx, sh = ey - sy;
+    if (sw <= 0 || sh <= 0) return;
+    // 元画像の解像度で出力（引き伸ばしなし）。長辺2048px上限は confirmWhole と同じ
+    const scale = Math.min(1, 2048 / Math.max(sw, sh));
     const off = document.createElement('canvas');
-    off.width  = Math.round(outW * dpr);
-    off.height = Math.round(outH * dpr);
+    off.width  = Math.max(1, Math.round(sw * scale));
+    off.height = Math.max(1, Math.round(sh * scale));
     const ctx = off.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, outW, outH);
-    if (isLandscape) {
-      // 視点中心を portrait 座標系に再マッピング
-      const viewCX = (this._cW / 2 - this._x) / this._scale;
-      const viewCY = (this._cH / 2 - this._y) / this._scale;
-      const ns = Math.max(outW / this._img.width, outH / this._img.height);
-      let nx = outW / 2 - viewCX * ns;
-      let ny = outH / 2 - viewCY * ns;
-      nx = Math.min(0, Math.max(nx, outW - this._img.width  * ns));
-      ny = Math.min(0, Math.max(ny, outH - this._img.height * ns));
-      ctx.translate(nx, ny);
-      ctx.scale(ns, ns);
-    } else {
-      ctx.translate(this._x, this._y);
-      ctx.scale(this._scale, this._scale);
-    }
-    ctx.drawImage(this._img, 0, 0);
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, off.width, off.height);
     off.toBlob(blob => this._onConfirm(blob), 'image/jpeg', 0.92);
   }
 
@@ -183,15 +163,16 @@ export class CropScreen {
     this._cH = h;
   }
 
-  // portrait-equivalent fit: 縦横問わず portrait 比率でスケールを決定
-  // 横画面では画像は canvas 幅に収まり、縦方向にはみ出す（黒帯なし、縦クリップあり）
+  // contain fit: 画像全体が枠内に収まる状態を初期値かつ最小ズームにする
+  // （cover だと最初から画像が切れて見え「はみ出ている？」と不安にさせるため）
+  // 決定時は黒帯を含めず画像と枠の交差部分だけを切り出す → 初期状態のまま決定＝写真全体
   _fitImage() {
     const { _img: img, _cW: w, _cH: h } = this;
-    const fw = Math.min(w, h);
-    const fh = Math.max(w, h);
-    this._origScale = Math.max(fw / img.width, fh / img.height);
-    this._minScale  = this._origScale;
-    this._scale     = this._origScale;
+    this._origScale  = Math.min(w / img.width, h / img.height);
+    this._minScale   = this._origScale;
+    this._scale      = this._origScale;
+    // 画質警告の基準は「枠を埋めるズーム量」（従来のcover基準を維持）
+    this._coverScale = Math.max(w / img.width, h / img.height);
     this._x = (w - img.width  * this._scale) / 2;
     this._y = (h - img.height * this._scale) / 2;
   }
@@ -241,7 +222,9 @@ export class CropScreen {
     ctx.drawImage(this._img, 0, 0);
     ctx.restore();
     if (this._qualityWarn) {
-      this._qualityWarn.classList.toggle('hidden', this._scale <= this._origScale * 2.8);
+      // contain基準ではなくcover基準（枠を埋めるズーム量）で判定（従来と同じ感覚を維持）
+      const base = this._coverScale || this._origScale;
+      this._qualityWarn.classList.toggle('hidden', this._scale <= base * 2.8);
     }
   }
 

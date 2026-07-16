@@ -7,7 +7,7 @@
 
 import { saveState, clearState } from './storage.js';
 
-const PIECE_SNAP  = 0.30; // 隣接ピース間スナップ閾値（30%）
+const PIECE_SNAP  = 0.35; // 隣接ピース間スナップ閾値（35%）— ピース同士は気持ちよくくっつく寄り
 const BOARD_SNAP  = 0.32; // 盤面スナップ閾値（32%）— 甘すぎると「自分ではめた感」が失われる
 const DELTAS = [[-1,0],[1,0],[0,-1],[0,1]];
 const SAVE_DEBOUNCE = 500;
