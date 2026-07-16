@@ -520,13 +520,16 @@ export class Puzzle {
 
     // 内側ベベル: 左上光源を想定した立体感（clip内なのでピース外にはみ出さない）
     // 白ストロークを右下へ、黒ストロークを左上へずらすと、
-    // 上・左辺の内側に光、下・右辺の内側に影が残る
-    const bevelW = Math.max(2.5, Math.min(pW, pH) * 0.07);
-    ctx.lineWidth = bevelW;
-    ctx.strokeStyle = p.placed ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.32)';
-    ctx.save(); ctx.translate(bevelW * 0.35, bevelW * 0.35); ctx.stroke(path); ctx.restore();
-    ctx.strokeStyle = p.placed ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.34)';
-    ctx.save(); ctx.translate(-bevelW * 0.35, -bevelW * 0.35); ctx.stroke(path); ctx.restore();
+    // 上・左辺の内側に光、下・右辺の内側に影が残る。
+    // 盤面に置いたピースは絵に馴染むようベベルなし（輪郭線のみ）
+    if (!p.placed) {
+      const bevelW = Math.max(2.5, Math.min(pW, pH) * 0.07);
+      ctx.lineWidth = bevelW;
+      ctx.strokeStyle = 'rgba(255,255,255,0.32)';
+      ctx.save(); ctx.translate(bevelW * 0.35, bevelW * 0.35); ctx.stroke(path); ctx.restore();
+      ctx.strokeStyle = 'rgba(0,0,0,0.34)';
+      ctx.save(); ctx.translate(-bevelW * 0.35, -bevelW * 0.35); ctx.stroke(path); ctx.restore();
+    }
 
     // ドラッグ中: 白トーンで明るさを演出（clip内なのでピース形状に自動クリップ）
     if (isDragging) {
