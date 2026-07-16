@@ -337,19 +337,20 @@ export class Puzzle {
 
   _generateEdges() {
     const { cols, rows } = this;
-    // hEdge[r][c]: 下辺方向（1=タブが下方向, -1=ブランク）
-    const hEdge = Array.from({ length: rows - 1 }, () =>
-      Array.from({ length: cols },     () => (Math.random() < 0.5 ? 1 : -1))
-    );
-    // vEdge[r][c]: 右辺方向（1=タブが右方向, -1=ブランク）
-    const vEdge = Array.from({ length: rows }, () =>
-      Array.from({ length: cols - 1 }, () => (Math.random() < 0.5 ? 1 : -1))
-    );
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    // 辺ごとのノブパラメータ。d: タブ方向（1=正方向に凸/-1=凹）
+    // m: ノブ中心位置（辺上の割合） / s: ノブの大きさ倍率
+    const mk = () => ({ d: Math.random() < 0.5 ? 1 : -1, m: rnd(0.42, 0.58), s: rnd(0.85, 1.08) });
+    // hEdge[r][c]: (r,c)の下辺 / vEdge[r][c]: (r,c)の右辺
+    const hEdge = Array.from({ length: rows - 1 }, () => Array.from({ length: cols },     mk));
+    const vEdge = Array.from({ length: rows },     () => Array.from({ length: cols - 1 }, mk));
+    // 隣接ピースの対面辺は d を反転・m を鏡映した同一形状（辺の描画方向が逆のため）
+    const flip = (e) => ({ d: -e.d, m: 1 - e.m, s: e.s });
     return Array.from({ length: rows }, (_, r) =>
       Array.from({ length: cols }, (_, c) => ({
-        top:    r === 0        ? 0 : -hEdge[r - 1][c],
+        top:    r === 0        ? 0 : flip(hEdge[r - 1][c]),
         bottom: r === rows - 1 ? 0 :  hEdge[r][c],
-        left:   c === 0        ? 0 : -vEdge[r][c - 1],
+        left:   c === 0        ? 0 : flip(vEdge[r][c - 1]),
         right:  c === cols - 1 ? 0 :  vEdge[r][c],
       }))
     );
@@ -362,10 +363,10 @@ export class Puzzle {
       const { pW, pH } = this;
       const path = new Path2D();
       path.moveTo(0, 0);
-      this._edgePath(path, 0,  0,  pW, 0,  e.top,    0, -1);
-      this._edgePath(path, pW, 0,  pW, pH, e.right,  1,  0);
-      this._edgePath(path, pW, pH, 0,  pH, e.bottom, 0,  1);
-      this._edgePath(path, 0,  pH, 0,  0,  e.left,  -1,  0);
+      this._edgePath(path, 0,  0,  pW, 0,  e.top,    0, -1, pH);
+      this._edgePath(path, pW, 0,  pW, pH, e.right,  1,  0, pW);
+      this._edgePath(path, pW, pH, 0,  pH, e.bottom, 0,  1, pH);
+      this._edgePath(path, 0,  pH, 0,  0,  e.left,  -1,  0, pW);
       path.closePath();
       p._path = path;
       p._pathPW = pW;
@@ -374,24 +375,43 @@ export class Puzzle {
     return p._path;
   }
 
-  _edgePath(path, x1, y1, x2, y2, type, perpX, perpY) {
-    if (type === 0) { path.lineTo(x2, y2); return; }
-    const dx = x2 - x1, dy = y2 - y1;
-    const H  = Math.sqrt(dx*dx + dy*dy) * 0.30 * type;
-    const tx = perpX * H, ty = perpY * H;
-    const q  = (f, ox, oy) => [x1 + dx*f + ox, y1 + dy*f + oy];
+  // 旧セーブデータの辺（±1の数値）を新形式のパラメータオブジェクトに変換
+  static _normEdge(e) {
+    if (!e) return 0;
+    if (typeof e === 'number') return { d: e, m: 0.5, s: 1 };
+    return e;
+  }
 
-    path.lineTo(...q(0.30, 0, 0));
-    path.bezierCurveTo(
-      ...q(0.30, tx*0.5, ty*0.5),
-      ...q(0.40, tx,     ty    ),
-      ...q(0.50, tx,     ty    )
-    );
-    path.bezierCurveTo(
-      ...q(0.60, tx,     ty    ),
-      ...q(0.70, tx*0.5, ty*0.5),
-      ...q(0.70, 0, 0)
-    );
+  // キノコ型ノブ: 平坦部 → S字肩（一度内側に沈む）→ くびれた首 → 張り出した頭
+  // e = { d: 凸方向, m: 中心位置, s: 大きさ } / perpDim: 辺と直交するピース寸法
+  _edgePath(path, x1, y1, x2, y2, e, perpX, perpY, perpDim) {
+    e = Puzzle._normEdge(e);
+    if (!e) { path.lineTo(x2, y2); return; }
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    // ノブ寸法の基準。細長ピースで隣に食い込んだり横に間延びしないよう
+    // 直交寸法でクランプし、高さ・幅とも同じ基準でスケールする
+    const base = Math.min(len, perpDim * 1.35);
+    const H = base * e.d;
+    const W = base / len; // 辺に沿う方向の縮尺
+    const { m, s } = e;
+    const hh  = 0.30 * s;       // 頭の高さ
+    const nw  = 0.055 * s * W;  // 首の半幅
+    const hw  = 0.125 * s * W;  // 頭の半幅（首より張り出してくびれを作る）
+    const dip = 0.04 * s;       // 肩の沈み込み（S字カーブ）
+    const P = (f, h) => [x1 + dx * f + perpX * H * h, y1 + dy * f + perpY * H * h];
+
+    path.lineTo(...P(m - 0.18 * s * W, 0));
+    // 左肩: 一度内側に沈んでから首の付け根へ
+    path.bezierCurveTo(...P(m - 0.10 * s * W, -dip), ...P(m - nw - 0.02 * W, -dip * 0.4), ...P(m - nw, hh * 0.26));
+    // 首 → 頭の左側面（制御点を外に張り出してキノコの傘を作る）
+    path.bezierCurveTo(...P(m - nw * 0.7, hh * 0.48), ...P(m - hw * 1.2, hh * 0.60), ...P(m - hw, hh * 0.83));
+    // 頭頂部
+    path.bezierCurveTo(...P(m - hw * 0.55, hh * 1.06), ...P(m + hw * 0.55, hh * 1.06), ...P(m + hw, hh * 0.83));
+    // 頭の右側面 → 首
+    path.bezierCurveTo(...P(m + hw * 1.2, hh * 0.60), ...P(m + nw * 0.7, hh * 0.48), ...P(m + nw, hh * 0.26));
+    // 右肩
+    path.bezierCurveTo(...P(m + nw + 0.02 * W, -dip * 0.4), ...P(m + 0.10 * s * W, -dip), ...P(m + 0.18 * s * W, 0));
     path.lineTo(x2, y2);
   }
 
@@ -480,8 +500,8 @@ export class Puzzle {
 
     const iW = image.width, iH = image.height;
     const cellW = iW / cols, cellH = iH / rows;
-    const EXTRA_X = Math.max(0.36, 0.32 * pH / pW);
-    const EXTRA_Y = Math.max(0.36, 0.32 * pW / pH);
+    const EXTRA_X = Math.max(0.40, 0.36 * pH / pW);
+    const EXTRA_Y = Math.max(0.40, 0.36 * pW / pH);
     const srcL = Math.max(0, (p.c - EXTRA_X) * cellW);
     const srcT = Math.max(0, (p.r - EXTRA_Y) * cellH);
     const srcR = Math.min(iW, (p.c + 1 + EXTRA_X) * cellW);
@@ -497,6 +517,16 @@ export class Puzzle {
       (srcR - srcL) * scX,
       (srcB - srcT) * scY
     );
+
+    // 内側ベベル: 左上光源を想定した立体感（clip内なのでピース外にはみ出さない）
+    // 白ストロークを右下へ、黒ストロークを左上へずらすと、
+    // 上・左辺の内側に光、下・右辺の内側に影が残る
+    const bevelW = Math.max(2.5, Math.min(pW, pH) * 0.07);
+    ctx.lineWidth = bevelW;
+    ctx.strokeStyle = p.placed ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.32)';
+    ctx.save(); ctx.translate(bevelW * 0.35, bevelW * 0.35); ctx.stroke(path); ctx.restore();
+    ctx.strokeStyle = p.placed ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.34)';
+    ctx.save(); ctx.translate(-bevelW * 0.35, -bevelW * 0.35); ctx.stroke(path); ctx.restore();
 
     // ドラッグ中: 白トーンで明るさを演出（clip内なのでピース形状に自動クリップ）
     if (isDragging) {
