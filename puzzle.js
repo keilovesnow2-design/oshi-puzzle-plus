@@ -37,6 +37,8 @@ export class Puzzle {
     this._completeFade  = 0;
     this._destroyed     = false;
     this._resizeTimer   = null;
+    this._resizeObserver = null;
+    this._resizePending  = false;  // ドラッグ中に来たresizeをドロップ後に適用するためのフラグ
     this.savedVW        = savedVW;
     this.savedVH        = savedVH;
 
@@ -59,12 +61,27 @@ export class Puzzle {
 
   _setupCanvas() {
     this._resize();
+    // debounce(220ms) + double-rAF: Androidの回転直後はlayoutが安定しておらず、
+    // 途中の寸法を拾うとピース座標が縮んだままになるため、安定を待ってから読む（crop.jsと同方式）
     this._resizeDebounced = () => {
       clearTimeout(this._resizeTimer);
-      this._resizeTimer = setTimeout(() => this._resize(), 150);
+      this._resizeTimer = setTimeout(() => {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          if (this._destroyed) return;
+          // ドラッグ中はpW/pHやピース座標が動くと掴んだピースがずれるので保留
+          if (this.dragSet) { this._resizePending = true; return; }
+          this._resize();
+        }));
+      }, 220);
     };
+    const cont = this.canvas.parentElement;
+    if (window.ResizeObserver && cont) {
+      this._resizeObserver = new ResizeObserver(this._resizeDebounced);
+      this._resizeObserver.observe(cont);
+    }
     window.addEventListener('resize', this._resizeDebounced);
     window.addEventListener('orientationchange', this._resizeDebounced);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', this._resizeDebounced);
   }
 
   _resize() {
@@ -73,6 +90,9 @@ export class Puzzle {
     const w    = cont.clientWidth;
     const h    = cont.clientHeight;
     if (!w || !h) return;
+    // 寸法もdprも変わっていなければ何もしない（canvas再確保によるちらつき・座標の丸め誤差を防ぐ）
+    if (this.vW === w && this.vH === h && this._dpr === dpr) return;
+    this._dpr = dpr;
 
     // 旧サイズを保持してスケール比を計算（初回は比率1.0）
     const oldW = this.vW || w;
@@ -224,6 +244,9 @@ export class Puzzle {
     // 未配置グループを安全範囲に収める
     const nonPlaced = group.filter(p => !p.placed);
     if (nonPlaced.length > 0) this._clampGroupToSafe(nonPlaced);
+
+    // ドラッグ中に保留されたresizeをここで適用
+    if (this._resizePending) { this._resizePending = false; this._resize(); }
 
     this._render();
     this._scheduleSave();
@@ -658,6 +681,8 @@ export class Puzzle {
     window.removeEventListener('mouseup',   this._onMUp);
     window.removeEventListener('resize', this._resizeDebounced);
     window.removeEventListener('orientationchange', this._resizeDebounced);
+    if (window.visualViewport) window.visualViewport.removeEventListener('resize', this._resizeDebounced);
+    if (this._resizeObserver) { this._resizeObserver.disconnect(); this._resizeObserver = null; }
     clearTimeout(this._resizeTimer);
   }
 
