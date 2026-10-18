@@ -527,7 +527,7 @@ export class Puzzle {
     // 上・左辺の内側に光、下・右辺の内側に影が残る。
     // 盤面に置いたピースは絵に馴染むようベベルなし（輪郭線のみ）
     if (!p.placed) {
-      const bevelW = Math.max(2.5, Math.min(pW, pH) * 0.07);
+      const bevelW = Math.max(1.5, Math.min(pW, pH) * 0.03);
       ctx.lineWidth = bevelW;
       ctx.strokeStyle = 'rgba(255,255,255,0.32)';
       ctx.save(); ctx.translate(bevelW * 0.35, bevelW * 0.35); ctx.stroke(path); ctx.restore();
@@ -554,21 +554,21 @@ export class Puzzle {
     ctx.translate(p.x, p.y);
     if (isDragging) {
       ctx.strokeStyle = '#FFD700';
-      ctx.lineWidth   = 2;
+      ctx.lineWidth   = 1.5;
       ctx.stroke(path);
     } else if (p.placed) {
       ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-      ctx.lineWidth   = 1.5;
+      ctx.lineWidth   = 0.8;
       ctx.stroke(path);
       ctx.strokeStyle = 'rgba(255,255,255,0.28)';
-      ctx.lineWidth   = 0.8;
+      ctx.lineWidth   = 0.5;
       ctx.stroke(path);
     } else {
       ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-      ctx.lineWidth   = 2.5;
+      ctx.lineWidth   = 1.2;
       ctx.stroke(path);
-      ctx.strokeStyle = 'rgba(255,255,255,0.70)';
-      ctx.lineWidth   = 1;
+      ctx.strokeStyle = 'rgba(255,255,255,0.60)';
+      ctx.lineWidth   = 0.6;
       ctx.stroke(path);
     }
     ctx.restore();
