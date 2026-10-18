@@ -13,6 +13,9 @@
 
 html, body {
   height: 100%;
+  /* 横向きでAndroid Chrome等が文字を自動拡大（フォントブースト）して画面全体が大きく見えるのを防ぐ */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;

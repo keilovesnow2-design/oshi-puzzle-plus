@@ -18,7 +18,7 @@
     }
   })();
   </script>
-  <link rel="stylesheet" href="style.css?v=1019f">
+  <link rel="stylesheet" href="style.css?v=1019g">
 </head>
 <body>
 
@@ -178,10 +178,10 @@
 // storage.js は puzzle.js 内部からも素のURLでimportされるため、二重インスタンス化を
 // 防ぐ目的であえて ?v= を付けない（付けると別モジュール扱いになりDB接続が分裂する）
 import { initDB, loadState, clearState, hasSavedState } from './storage.js';
-import { Puzzle, formatTime } from './puzzle.js?v=1019f';
-import { CropScreen } from './crop.js?v=1019f';
+import { Puzzle, formatTime } from './puzzle.js?v=1019g';
+import { CropScreen } from './crop.js?v=1019g';
 
-const APP_VERSION = 'v1019f';
+const APP_VERSION = 'v1019g';
 
 // ── ?debug=1: 画像選択の動作ログ（実機調査用・通常は非表示）──
 const DBG = /[?&]debug=1/.test(location.search);
