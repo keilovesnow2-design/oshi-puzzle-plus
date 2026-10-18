@@ -375,6 +375,9 @@ export class Puzzle {
     return p._path;
   }
 
+  // ノブ寸法の基準値（好み調整はここだけ）
+  static KNOB = { hh: 0.36, nw: 0.068, hw: 0.16, dip: 0.042 };
+
   // 旧セーブデータの辺（±1の数値）を新形式のパラメータオブジェクトに変換
   static _normEdge(e) {
     if (!e) return 0;
@@ -395,10 +398,11 @@ export class Puzzle {
     const H = base * e.d;
     const W = base / len; // 辺に沿う方向の縮尺
     const { m, s } = e;
-    const hh  = 0.30 * s;       // 頭の高さ
-    const nw  = 0.055 * s * W;  // 首の半幅
-    const hw  = 0.125 * s * W;  // 頭の半幅（首より張り出してくびれを作る）
-    const dip = 0.04 * s;       // 肩の沈み込み（S字カーブ）
+    const K = Puzzle.KNOB;
+    const hh  = K.hh * s;       // 頭の高さ
+    const nw  = K.nw * s * W;   // 首の半幅
+    const hw  = K.hw * s * W;   // 頭の半幅（首より張り出してくびれを作る）
+    const dip = K.dip * s;      // 肩の沈み込み（S字カーブ）
     const P = (f, h) => [x1 + dx * f + perpX * H * h, y1 + dy * f + perpY * H * h];
 
     path.lineTo(...P(m - 0.18 * s * W, 0));
