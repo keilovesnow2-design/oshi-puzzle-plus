@@ -97,6 +97,8 @@ export class Puzzle {
     // 旧サイズを保持してスケール比を計算（初回は比率1.0）
     const oldW = this.vW || w;
     const oldH = this.vH || h;
+    const oldPW = this.pW || 0;
+    const oldPH = this.pH || 0;
 
     this.canvas.width  = w * dpr;
     this.canvas.height = h * dpr;
@@ -125,11 +127,13 @@ export class Puzzle {
           p.x = this._cx(p);
           p.y = this._cy(p);
         } else {
-          p.x = p.x * scaleX;
-          p.y = p.y * scaleY;
+          // ピースの寸法も変わるので、左上ではなく中心を比率で写す
+          // （左上基準だと縦長↔横長でピースが片側に寄り、下端のバーに隠れる）
+          p.x = (p.x + oldPW / 2) * scaleX - this.pW / 2;
+          p.y = (p.y + oldPH / 2) * scaleY - this.pH / 2;
         }
       }
-      this._clampAllGroups();
+      this._clampAllGroups(true);
       // pW/pHが変わったのでPath2Dキャッシュを無効化
       for (const p of this.pieces) delete p._path;
       this._render();
@@ -282,14 +286,31 @@ export class Puzzle {
     if (dx !== 0 || dy !== 0) for (const p of group) { p.x += dx; p.y += dy; }
   }
 
-  _clampAllGroups() {
+  // fullInside=true: グループ全体を画面内に収める（収まらない大きさなら従来の最低表示量にフォールバック）
+  _clampAllGroups(fullInside = false) {
     const groups = new Map();
     for (const p of this.pieces) {
       if (p.placed) continue;
       if (!groups.has(p.groupId)) groups.set(p.groupId, []);
       groups.get(p.groupId).push(p);
     }
-    for (const group of groups.values()) this._clampGroupToSafe(group);
+    for (const group of groups.values()) {
+      if (fullInside) this._clampGroupInside(group);
+      this._clampGroupToSafe(group);
+    }
+  }
+
+  _clampGroupInside(group) {
+    const { pW, pH, vW, vH } = this;
+    let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+    for (const p of group) {
+      l = Math.min(l, p.x); t = Math.min(t, p.y);
+      r = Math.max(r, p.x + pW); b = Math.max(b, p.y + pH);
+    }
+    let dx = 0, dy = 0;
+    if (r - l <= vW) { if (l < 0) dx = -l; else if (r > vW) dx = vW - r; }
+    if (b - t <= vH) { if (t < 0) dy = -t; else if (b > vH) dy = vH - b; }
+    if (dx || dy) for (const p of group) { p.x += dx; p.y += dy; }
   }
 
   // ── Snap ───────────────────────────────────────────────────────────────
