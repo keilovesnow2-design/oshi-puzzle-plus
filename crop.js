@@ -43,6 +43,7 @@ export class CropScreen {
     this._onMMove      = this._onMMove.bind(this);
     this._onMUp        = this._onMUp.bind(this);
     this._onWheel      = this._onWheel.bind(this);
+    this._blockPagePinch = this._blockPagePinch.bind(this);
     this._handleResize = this._handleResize.bind(this);
 
     // [DEBUG] ─────────────────────────────────────────────────────────────
@@ -277,21 +278,33 @@ export class CropScreen {
       this._dragX0 = ts[0].clientX; this._dragY0 = ts[0].clientY;
       this._imgX0  = this._x;       this._imgY0  = this._y;
     } else if (ts.length >= 2) {
-      this._dragging = false;
-      this._pinching = true;
-      this._pinchD0     = this._pdist(ts[0], ts[1]);
-      this._pinchScale0 = this._scale;
-      const r = this._canvas.getBoundingClientRect();
-      this._pinchMidX  = (ts[0].clientX + ts[1].clientX) / 2 - r.left;
-      this._pinchMidY  = (ts[0].clientY + ts[1].clientY) / 2 - r.top;
-      this._pinchImgX0 = this._x;
-      this._pinchImgY0 = this._y;
+      this._beginPinch(ts);
     }
+  }
+
+  _beginPinch(ts) {
+    this._dragging = false;
+    this._pinching = true;
+    this._pinchD0     = this._pdist(ts[0], ts[1]);
+    this._pinchScale0 = this._scale;
+    const r = this._canvas.getBoundingClientRect();
+    this._pinchMidX  = (ts[0].clientX + ts[1].clientX) / 2 - r.left;
+    this._pinchMidY  = (ts[0].clientY + ts[1].clientY) / 2 - r.top;
+    this._pinchImgX0 = this._x;
+    this._pinchImgY0 = this._y;
+  }
+
+  // 2本目の指がcanvas外（ヘッダー/ボタン上）に触れるとcanvasにtouchstartが届かず、
+  // ブラウザ標準のページ拡大が走ってしまう。クロップ画面内では2本指操作を常に奪う。
+  _blockPagePinch(e) {
+    if (e.touches.length > 1) e.preventDefault();
   }
 
   _onTMove(e) {
     e.preventDefault();
     const ts = e.touches;
+    // 2本目がcanvas外から始まった場合など、touchstartを取りこぼしていてもここでピンチ開始する
+    if (ts.length >= 2 && !this._pinching) this._beginPinch(ts);
     if (ts.length >= 2 && this._pinching) {
       const d     = this._pdist(ts[0], ts[1]);
       const ns    = Math.max(this._minScale, this._pinchScale0 * d / this._pinchD0);
@@ -359,6 +372,11 @@ export class CropScreen {
     window.addEventListener('mousemove', this._onMMove);
     window.addEventListener('mouseup',   this._onMUp);
     c.addEventListener('wheel', this._onWheel, { passive: false });
+    this._screenEl = this._wrap.closest('.screen');
+    if (this._screenEl) {
+      this._screenEl.addEventListener('touchstart', this._blockPagePinch, { passive: false });
+      this._screenEl.addEventListener('touchmove',  this._blockPagePinch, { passive: false });
+    }
     if (window.ResizeObserver) {
       this._resizeObserver = new ResizeObserver(this._handleResize);
       this._resizeObserver.observe(this._wrap);
@@ -383,6 +401,11 @@ export class CropScreen {
     window.removeEventListener('mousemove', this._onMMove);
     window.removeEventListener('mouseup',   this._onMUp);
     c.removeEventListener('wheel', this._onWheel);
+    if (this._screenEl) {
+      this._screenEl.removeEventListener('touchstart', this._blockPagePinch);
+      this._screenEl.removeEventListener('touchmove',  this._blockPagePinch);
+      this._screenEl = null;
+    }
     if (this._resizeObserver) {
       this._resizeObserver.disconnect();
       this._resizeObserver = null;

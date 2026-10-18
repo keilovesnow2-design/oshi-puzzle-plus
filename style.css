@@ -563,6 +563,7 @@ html, body {
 /* ===== CROP SCREEN ===== */
 #cropScreen {
   padding: 0;
+  touch-action: none; /* クロップ中はブラウザのページ拡大・スクロールを使わせない（写真の拡大はcrop.jsが処理） */
   background: #0a0a1a;
   justify-content: flex-start;
   gap: 0;
