@@ -375,8 +375,9 @@ export class Puzzle {
     return p._path;
   }
 
-  // ノブ寸法の基準値（好み調整はここだけ）
-  static KNOB = { hh: 0.36, nw: 0.068, hw: 0.16, dip: 0.042 };
+  // ノブ寸法の基準値（好み調整はここだけ。単位は base=辺と直交寸法に対する割合）
+  // D: 深さ / rx,ry: 頭の半幅・半高 / nw: 首の半幅 / sh: 肩の半幅 / dip: 肩の沈み込み
+  static KNOB = { D: 0.30, rx: 0.14, ry: 0.125, nw: 0.06, sh: 0.14, dip: 0.03 };
 
   // 旧セーブデータの辺（±1の数値）を新形式のパラメータオブジェクトに変換
   static _normEdge(e) {
@@ -385,7 +386,7 @@ export class Puzzle {
     return e;
   }
 
-  // キノコ型ノブ: 平坦部 → S字肩（一度内側に沈む）→ くびれた首 → 張り出した頭
+  // 短首キノコ型ノブ: 平坦部 → S字肩（一度内側に沈む）→ 短い首 → 楕円の頭
   // e = { d: 凸方向, m: 中心位置, s: 大きさ } / perpDim: 辺と直交するピース寸法
   _edgePath(path, x1, y1, x2, y2, e, perpX, perpY, perpDim) {
     e = Puzzle._normEdge(e);
@@ -399,23 +400,30 @@ export class Puzzle {
     const W = base / len; // 辺に沿う方向の縮尺
     const { m, s } = e;
     const K = Puzzle.KNOB;
-    const hh  = K.hh * s;       // 頭の高さ
-    const nw  = K.nw * s * W;   // 首の半幅
-    const hw  = K.hw * s * W;   // 頭の半幅（首より張り出してくびれを作る）
-    const dip = K.dip * s;      // 肩の沈み込み（S字カーブ）
+    const rx = K.rx * s, ry = K.ry * s;   // 頭の半幅・半高
+    const nwh = K.nw * s;                 // 首の半幅（h単位）
+    const nw = nwh * W, sh = K.sh * s * W, dip = K.dip * s;
+    const hc = K.D * s - ry;              // 頭の中心の高さ
     const P = (f, h) => [x1 + dx * f + perpX * H * h, y1 + dy * f + perpY * H * h];
+    const q = Math.sqrt(1 - (nwh / rx) ** 2);
+    const hn = hc - ry * q;               // 首と頭の接点の高さ
 
-    path.lineTo(...P(m - 0.18 * s * W, 0));
+    path.lineTo(...P(m - sh, 0));
     // 左肩: 一度内側に沈んでから首の付け根へ
-    path.bezierCurveTo(...P(m - 0.10 * s * W, -dip), ...P(m - nw - 0.02 * W, -dip * 0.4), ...P(m - nw, hh * 0.26));
-    // 首 → 頭の左側面（制御点を外に張り出してキノコの傘を作る）
-    path.bezierCurveTo(...P(m - nw * 0.7, hh * 0.48), ...P(m - hw * 1.2, hh * 0.60), ...P(m - hw, hh * 0.83));
-    // 頭頂部
-    path.bezierCurveTo(...P(m - hw * 0.55, hh * 1.06), ...P(m + hw * 0.55, hh * 1.06), ...P(m + hw, hh * 0.83));
-    // 頭の右側面 → 首
-    path.bezierCurveTo(...P(m + hw * 1.2, hh * 0.60), ...P(m + nw * 0.7, hh * 0.48), ...P(m + nw, hh * 0.26));
+    path.bezierCurveTo(...P(m - sh * 0.5, -dip), ...P(m - nw - 0.02 * W, -dip * 0.2), ...P(m - nw, hn * 0.45));
+    path.lineTo(...P(m - nw, hn));
+    // 頭: 楕円を4本のベジェで描く（左接点 → 頭頂 → 右接点）
+    const t0 = Math.atan2(-q, -nwh / rx) + 2 * Math.PI, t1 = Math.atan2(-q, nwh / rx);
+    const N = 4, dt = (t1 - t0) / N, k = 4 / 3 * Math.tan(dt / 4);
+    const pt = (t) => [m + rx * W * Math.cos(t), hc + ry * Math.sin(t)];
+    const dv = (t) => [-rx * W * Math.sin(t), ry * Math.cos(t)];
+    for (let i = 0; i < N; i++) {
+      const a = t0 + dt * i, b = a + dt, pa = pt(a), pb = pt(b), da = dv(a), db = dv(b);
+      path.bezierCurveTo(...P(pa[0] + k * da[0], pa[1] + k * da[1]), ...P(pb[0] - k * db[0], pb[1] - k * db[1]), ...P(pb[0], pb[1]));
+    }
     // 右肩
-    path.bezierCurveTo(...P(m + nw + 0.02 * W, -dip * 0.4), ...P(m + 0.10 * s * W, -dip), ...P(m + 0.18 * s * W, 0));
+    path.lineTo(...P(m + nw, hn * 0.45));
+    path.bezierCurveTo(...P(m + nw + 0.02 * W, -dip * 0.2), ...P(m + sh * 0.5, -dip), ...P(m + sh, 0));
     path.lineTo(x2, y2);
   }
 
