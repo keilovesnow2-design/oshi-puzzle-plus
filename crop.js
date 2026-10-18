@@ -296,6 +296,41 @@ export class CropScreen {
 
   // 2本目の指がcanvas外（ヘッダー/ボタン上）に触れるとcanvasにtouchstartが届かず、
   // ブラウザ標準のページ拡大が走ってしまう。クロップ画面内では2本指操作を常に奪う。
+  // ?debug=1 のときだけ左上に実機のタッチ状況を表示（拡大が効かない原因の切り分け用）
+  _attachDebugHud() {
+    if (this._hud || !/[?&]debug=1/.test(location.search) || !this._screenEl) return;
+    const hud = document.createElement('div');
+    hud.style.cssText = 'position:fixed;left:4px;top:4px;z-index:99999;background:rgba(0,0,0,.75);color:#0f0;font:11px/1.3 monospace;padding:4px 6px;pointer-events:none;white-space:pre;max-width:90vw';
+    document.body.appendChild(hud);
+    this._hud = hud;
+    this._hudLog = { start: '-', move: '-', n: 0 };
+    const name = (t) => (t && (t.id || t.tagName || '?')) + '';
+    const upd = (type, e) => {
+      const ts = [...e.touches].map(t => name(t.target)).join(',');
+      this._hudLog[type] = `${e.touches.length}本 [${ts}]`;
+      this._hudLog.n++;
+      this._updateHud();
+    };
+    window.addEventListener('touchstart', (e) => upd('start', e), { capture: true, passive: true });
+    window.addEventListener('touchmove',  (e) => upd('move',  e), { capture: true, passive: true });
+    this._updateHud();
+  }
+
+  _updateHud() {
+    if (!this._hud) return;
+    const vv = window.visualViewport;
+    this._hud.textContent =
+      `touchstart: ${this._hudLog.start}
+` +
+      `touchmove : ${this._hudLog.move}
+` +
+      `pinching=${this._pinching} dragging=${this._dragging}
+` +
+      `scale=${(this._scale || 0).toFixed(3)} min=${(this._minScale || 0).toFixed(3)}
+` +
+      `pageZoom=${vv ? vv.scale.toFixed(2) : 'n/a'} events=${this._hudLog.n}`;
+  }
+
   _blockPagePinch(e) {
     if (e.touches.length > 1) e.preventDefault();
   }
@@ -319,6 +354,7 @@ export class CropScreen {
       this._clamp();
     }
     this._scheduleRender();
+    this._updateHud();
   }
 
   _onTEnd(e) {
@@ -373,6 +409,7 @@ export class CropScreen {
     window.addEventListener('mouseup',   this._onMUp);
     c.addEventListener('wheel', this._onWheel, { passive: false });
     this._screenEl = this._wrap.closest('.screen');
+    this._attachDebugHud();
     if (this._screenEl) {
       this._screenEl.addEventListener('touchstart', this._blockPagePinch, { passive: false });
       this._screenEl.addEventListener('touchmove',  this._blockPagePinch, { passive: false });
